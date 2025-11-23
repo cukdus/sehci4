@@ -27,22 +27,14 @@
           </div>
         <?php endif; ?>
 
-        <form action="<?= route_to('login') ?>" method="post">
-          <?= csrf_field() ?>
+        <form action="/login" method="post">
           <div class="mb-3">
-            <label for="login" class="form-label">Username</label>
-            <input type="text" id="login" name="login" class="form-control form-control-lg" value="<?= old('login') ?>" required>
+            <label for="username" class="form-label">Username</label>
+            <input type="text" id="username" name="username" class="form-control form-control-lg" value="<?= old('username') ?>" required>
           </div>
           <div class="mb-3">
             <label for="password" class="form-label">Password</label>
             <input type="password" id="password" name="password" class="form-control form-control-lg" required>
-          </div>
-          <div class="d-flex justify-content-between align-items-center mb-4">
-            <div class="form-check">
-              <input class="form-check-input" type="checkbox" value="1" id="remember" name="remember">
-              <label class="form-check-label" for="remember">Remember Me</label>
-            </div>
-            <a href="/forgot" class="text-decoration-none">Forgot Password</a>
           </div>
           <button type="submit" class="btn btn-primary btn-lg w-100">Sign In</button>
         </form>

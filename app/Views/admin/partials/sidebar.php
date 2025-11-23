@@ -5,9 +5,9 @@
           <a href="./index.html" class="brand-link">
 -->
             <img
-              src="./assets/img/AdminLTELogo.png"
+              src="../assets/adminlte/img/iconadmin.webp"
               alt="AdminLTE Logo"
-              class="brand-image opacity-75 shadow"
+              class="brand-image opacity-75 shadow" style="max-height: 33px;"
             />
             <!--end::Brand Image-->
             <!--begin::Brand Text-->
@@ -31,17 +31,17 @@
             >
               
               <li class="nav-item">
-                <a href="./generate/theme.html" class="nav-link">
-                  <i class="nav-icon bi bi-palette"></i>
-                  <p>Theme Generate</p>
+                <a href="#" class="nav-link">
+                  <i class="nav-icon bi bi-speedometer"></i>
+                  <p>Dashboard</p>
                 </a>
               </li>
               
-              <li class="nav-header">DOCUMENTATIONS</li>
+              <li class="nav-header">Anggota</li>
               <li class="nav-item">
-                <a href="./docs/introduction.html" class="nav-link">
+                <a href="#" class="nav-link">
                   <i class="nav-icon bi bi-download"></i>
-                  <p>Installation</p>
+                  <p>Data Anggota</p>
                 </a>
               </li>
               <li class="nav-item">
@@ -56,6 +56,27 @@
                   <p>Color Mode</p>
                 </a>
               </li>
+              <li class="nav-header">Transaksi</li>
+              <li class="nav-item">
+                <a href="/admin/pinjaman" class="nav-link">
+                  <i class="nav-icon bi bi-download"></i>
+                  <p>Pinjaman</p>
+                </a>
+              </li>
+              <li class="nav-item">
+                <a href="./docs/layout.html" class="nav-link">
+                  <i class="nav-icon bi bi-grip-horizontal"></i>
+                  <p>Angsuran</p>
+                </a>
+              </li>
+              <li class="nav-item">
+                <a href="./docs/color-mode.html" class="nav-link">
+                  <i class="nav-icon bi bi-star-half"></i>
+                  <p>Color Mode</p>
+                </a>
+              </li>
+              <li class="nav-header">Tabungan</li>
+              <li class="nav-header">Settings</li>
               <li class="nav-item">
                 <a href="#" class="nav-link">
                   <i class="nav-icon bi bi-ui-checks-grid"></i>
