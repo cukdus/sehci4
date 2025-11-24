@@ -2,7 +2,7 @@
         <!--begin::Sidebar Brand-->
         <div class="sidebar-brand">
 
-          <a href="/admin" class="brand-link">
+          <a href="/anggota" class="brand-link">
 
             <img
               src="<?php echo base_url('/assets/adminlte/img/iconadmin.webp'); ?>"
@@ -35,24 +35,77 @@
                   <p>Dashboard</p>
                 </a>
               </li>
-              
-              <li class="nav-header">Anggota</li>
+              <li class="nav-header">Profil</li>
+              <li class="nav-item">
+                <a href="/anggota/profil" class="nav-link">
+                  <i class="nav-icon bi bi-person"></i>
+                  <p>Lihat Profil</p>
+                </a>
+              </li>
+              <li class="nav-header">Simpanan</li>
+              <li class="nav-item">
+                <a href="#" class="nav-link">
+                  <i class="nav-icon bi bi-ui-checks-grid"></i>
+                  <p>
+                    Simpanan
+                    <i class="nav-arrow bi bi-chevron-right"></i>
+                  </p>
+                </a>
+                <ul class="nav nav-treeview">
+                  <li class="nav-item">
+                    <a href="./docs/components/main-header.html" class="nav-link">
+                      <i class="nav-icon bi bi-circle"></i>
+                      <p>Data Simpanan</p>
+                    </a>
+                  </li>
+                  <li class="nav-item">
+                    <a href="./docs/components/main-sidebar.html" class="nav-link">
+                      <i class="nav-icon bi bi-circle"></i>
+                      <p>Simpanan Pokok</p>
+                    </a>
+                  </li>
+                  <li class="nav-item">
+                    <a href="./docs/components/main-sidebar.html" class="nav-link">
+                      <i class="nav-icon bi bi-circle"></i>
+                      <p>Simpanan Wajib</p>
+                    </a>
+                  </li>
+                  <li class="nav-item">
+                    <a href="./docs/components/main-sidebar.html" class="nav-link">
+                      <i class="nav-icon bi bi-circle"></i>
+                      <p>Simpanan Sukarela</p>
+                    </a>
+                  </li>
+                  <li class="nav-item">
+                    <a href="./docs/components/main-sidebar.html" class="nav-link">
+                      <i class="nav-icon bi bi-circle"></i>
+                      <p>Hibah</p>
+                    </a>
+                  </li>
+                </ul>
+              </li>
               <li class="nav-item">
                 <a href="/admin/anggota" class="nav-link">
                   <i class="nav-icon bi bi-people"></i>
-                  <p>Data Anggota</p>
+                  <p>Pokok</p>
                 </a>
               </li>
               <li class="nav-item">
                 <a href="./docs/layout.html" class="nav-link">
                   <i class="nav-icon bi bi-grip-horizontal"></i>
-                  <p>Layout</p>
+                  <p>Wajib</p>
                 </a>
               </li>
               <li class="nav-item">
                 <a href="./docs/color-mode.html" class="nav-link">
                   <i class="nav-icon bi bi-star-half"></i>
-                  <p>Color Mode</p>
+                  <p>Sukarela</p>
+                </a>
+              </li>
+              <li class="nav-item">
+                <a href="./docs/color-mode.html" class="nav-link">
+                  <i class="nav-icon bi bi-star-half"></i>
+                  <p>Hibah</p>
                 </a>
               </li>
               <li class="nav-header">Transaksi</li>
@@ -80,7 +133,7 @@
                 <a href="#" class="nav-link">
                   <i class="nav-icon bi bi-ui-checks-grid"></i>
                   <p>
-                    Components
+                    Setting
                     <i class="nav-arrow bi bi-chevron-right"></i>
                   </p>
                 </a>
@@ -88,7 +141,7 @@
                   <li class="nav-item">
                     <a href="./docs/components/main-header.html" class="nav-link">
                       <i class="nav-icon bi bi-circle"></i>
-                      <p>Main Header</p>
+                      <p>User</p>
                     </a>
                   </li>
                   <li class="nav-item">

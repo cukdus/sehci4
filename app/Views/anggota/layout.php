@@ -1,14 +1,14 @@
 <!doctype html>
 <html lang="en">
 <head>
-<?php echo view('admin/partials/head', ['title' => $title ?? 'Admin']); ?>
+<?php echo view('anggota/partials/head', ['title' => $title ?? 'anggota']); ?>
 </head>
 <body class="layout-fixed sidebar-expand-lg sidebar-open bg-body-tertiary">
 <div class="app-wrapper">
-  <?php echo view('admin/partials/navbar'); ?>
-  <?php echo view('admin/partials/sidebar'); ?>
+  <?php echo view('anggota/partials/navbar'); ?>
+  <?php echo view('anggota/partials/sidebar'); ?>
   <?php echo $content; ?>
-  <?php echo view('admin/partials/footer'); ?>
+  <?php echo view('anggota/partials/footer'); ?>
 </div>
 <script
   src="https://cdn.jsdelivr.net/npm/admin-lte@4.0.0-rc3/dist/js/adminlte.min.js"
@@ -28,8 +28,6 @@
       src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.min.js"
       crossorigin="anonymous"
     ></script>
-    <!--end::Required Plugin(Bootstrap 5)--><!--begin::Required Plugin(AdminLTE)-->
-    <!--end::Required Plugin(AdminLTE)--><!--begin::OverlayScrollbars Configure-->
     <script>
       const SELECTOR_SIDEBAR_WRAPPER = '.sidebar-wrapper';
       const Default = {

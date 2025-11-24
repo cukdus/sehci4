@@ -157,5 +157,7 @@ class DatabaseSeeder extends Seeder
         ]);
 
         $db->transComplete();
+
+        $this->call('AnggotaPinjamanSeeder');
     }
 }

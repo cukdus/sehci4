@@ -20,13 +20,13 @@
             <table class="table table-striped table-hover">
               <thead>
                 <tr>
-                  <th>ID</th>
-                  <th>No Angg.</th>
-                  <th>Nama Angg.</th>
-                  <th>Jumlah Pinj.</th>
-                  <th>Bunga (%)</th>
-                  <th>Tgl. Pinjam</th>
-                  <th>Jangka Waktu (bulan)</th>
+                  <th class="sortable">ID</th>
+                  <th class="sortable">No Anggota</th>
+                  <th class="sortable">Nama Anggota</th>
+                  <th class="sortable">Jumlah Pinjaman</th>
+                  <th class="sortable">Bunga (%)</th>
+                  <th class="sortable">Tanggal Pinjam</th>
+                  <th class="sortable">Jangka Waktu (bulan)</th>
                   <th>Aksi</th>
                 </tr>
               </thead>
@@ -34,13 +34,13 @@
                 <?php if (!empty($permohonan)): ?>
                   <?php foreach ($permohonan as $p): ?>
                     <tr>
-                      <td><?= esc($p['id_pinjaman']) ?></td>
+                      <td data-value="<?= esc($p['id_pinjaman']) ?>"><?= esc($p['id_pinjaman']) ?></td>
                       <td><?= esc($p['no_anggota'] ?? '-') ?></td>
                       <td><?= esc($p['nama'] ?? '-') ?></td>
-                      <td><?= number_format((float) $p['jumlah_pinjaman'], 2, ',', '.') ?></td>
-                      <td><?= esc($p['bunga']) ?></td>
-                      <td><?= esc($p['tanggal_pinjam'] ?? '-') ?></td>
-                      <td><?= esc($p['jangka_waktu']) ?></td>
+                      <td data-value="<?= esc($p['jumlah_pinjaman']) ?>"><?= number_format((float) $p['jumlah_pinjaman'], 2, ',', '.') ?></td>
+                      <td data-value="<?= esc($p['bunga']) ?>"><?= esc($p['bunga']) ?></td>
+                      <td data-value="<?= $p['tanggal_pinjam'] ? strtotime($p['tanggal_pinjam']) : 0 ?>"><?= esc($p['tanggal_pinjam'] ?? '-') ?></td>
+                      <td data-value="<?= esc($p['jangka_waktu']) ?>"><?= esc($p['jangka_waktu']) ?></td>
                       <td>
                         <button type="button" class="btn btn-sm btn-success me-2" data-bs-toggle="modal" data-bs-target="#modalApprove" data-id="<?= esc($p['id_pinjaman']) ?>">Terima</button>
                         <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#modalReject" data-id="<?= esc($p['id_pinjaman']) ?>">Tolak</button>
@@ -67,28 +67,28 @@
             <table class="table table-striped table-hover">
               <thead>
                 <tr>
-                  <th>ID</th>
-                  <th>No Angg.</th>
-                  <th>Nama Angg.</th>
-                  <th>Jumlah Pinj.</th>
-                  <th>Bunga (%)</th>
-                  <th>Tgl. Pinjam</th>
-                  <th>Jangka Waktu (bulan)</th>
-                  <th>Status</th>
+                  <th class="sortable">ID</th>
+                  <th class="sortable">No Anggota</th>
+                  <th class="sortable">Nama Anggota</th>
+                  <th class="sortable">Jumlah Pinjaman</th>
+                  <th class="sortable">Bunga (%)</th>
+                  <th class="sortable">Tanggal Pinjam</th>
+                  <th class="sortable">Jangka Waktu (bulan)</th>
+                  <th class="sortable">Status</th>
                 </tr>
               </thead>
               <tbody>
                 <?php if (!empty($pinjaman)): ?>
                   <?php foreach ($pinjaman as $p): ?>
                     <tr>
-                      <td><?= esc($p['id_pinjaman']) ?></td>
+                      <td data-value="<?= esc($p['id_pinjaman']) ?>"><?= esc($p['id_pinjaman']) ?></td>
                       <td><?= esc($p['no_anggota'] ?? '-') ?></td>
                       <td><?= esc($p['nama'] ?? '-') ?></td>
-                      <td><?= number_format((float) $p['jumlah_pinjaman'], 2, ',', '.') ?></td>
-                      <td><?= esc($p['bunga']) ?></td>
-                      <td><?= esc($p['tanggal_pinjam'] ?? '-') ?></td>
-                      <td><?= esc($p['jangka_waktu']) ?></td>
-                      <td><span class="badge text-bg-secondary"><?= esc($p['status']) ?></span></td>
+                      <td data-value="<?= esc($p['jumlah_pinjaman']) ?>"><?= number_format((float) $p['jumlah_pinjaman'], 2, ',', '.') ?></td>
+                      <td data-value="<?= esc($p['bunga']) ?>"><?= esc($p['bunga']) ?></td>
+                      <td data-value="<?= $p['tanggal_pinjam'] ? strtotime($p['tanggal_pinjam']) : 0 ?>"><?= esc($p['tanggal_pinjam'] ?? '-') ?></td>
+                      <td data-value="<?= esc($p['jangka_waktu']) ?>"><?= esc($p['jangka_waktu']) ?></td>
+                      <td data-value="<?= esc($p['status']) ?>"><span class="badge text-bg-secondary"><?= esc($p['status']) ?></span></td>
                     </tr>
                   <?php endforeach; ?>
                 <?php else: ?>
@@ -104,6 +104,40 @@
     </div>
   </div>
 </main>
+<script>
+  function sortTable(table, columnIndex, asc) {
+    const tbody = table.querySelector('tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    const getVal = (td) => td.dataset.value !== undefined ? td.dataset.value : td.textContent.trim().toLowerCase();
+    const isNumeric = rows.every(r => {
+      const v = getVal(r.children[columnIndex]);
+      return v !== '' && !isNaN(Number(v));
+    });
+    rows.sort((a, b) => {
+      const va = getVal(a.children[columnIndex]);
+      const vb = getVal(b.children[columnIndex]);
+      if (isNumeric) {
+        const na = Number(va);
+        const nb = Number(vb);
+        return asc ? na - nb : nb - na;
+      }
+      return asc ? va.localeCompare(vb) : vb.localeCompare(va);
+    });
+    rows.forEach(r => tbody.appendChild(r));
+  }
+  document.querySelectorAll('table').forEach(table => {
+    const headers = table.querySelectorAll('th.sortable');
+    headers.forEach((th, idx) => {
+      th.style.cursor = 'pointer';
+      th.addEventListener('click', () => {
+        const current = th.dataset.direction === 'asc' ? 'desc' : 'asc';
+        headers.forEach(h => delete h.dataset.direction);
+        th.dataset.direction = current;
+        sortTable(table, idx, current === 'asc');
+      });
+    });
+  });
+</script>
 <div class="modal fade" id="modalApprove" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
     <form action="/admin/pinjaman/approve" method="post" class="modal-content">
