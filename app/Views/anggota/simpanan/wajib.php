@@ -1,48 +1,44 @@
 <main class="app-main">
-  <div class="app-content-header">
-    <div class="container-fluid">
-      <div class="row">
-        <div class="col-sm-6">
-          <h3 class="mb-0">Simpanan Wajib</h3>
+  <div class="container-fluid py-3">
+    <div class="d-flex justify-content-between align-items-center">
+      <h5 class="mb-0">Daftar Simpanan Wajib</h5>
+        <a href="https://eqiyu.id/admin/setting/users/create" class="btn btn-sm btn-primary">
+          <i class="bi bi-plus-lg"></i> Tambah Simpanan
+        </a>
+    </div>
+  </div>
+  <div class="container-fluid">
+    <div class="card card-primary card-outline">
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-striped table-hover">
+            <thead>
+              <tr>
+                <th>Nomor</th>
+                <th>Tanggal Simpan</th>
+                <th>Jumlah</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="rows"></tbody>
+            <tfoot>
+              <tr>
+                <th colspan="2" class="text-end">Total</th>
+                <th id="total"></th>
+                <th></th>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        <div class="d-flex justify-content-between align-items-center mt-2" id="pagination">
+          <button class="btn btn-outline-secondary btn-sm" id="prev">Sebelumnya</button>
+          <span id="pageInfo"></span>
+          <button class="btn btn-outline-secondary btn-sm" id="next">Berikutnya</button>
         </div>
       </div>
     </div>
-  </div>
-
-  <div class="app-content">
-    <div class="container-fluid">
-      <div class="card card-primary card-outline">
-        <div class="card-body">
-          <div class="table-responsive">
-            <table class="table table-striped table-hover">
-              <thead>
-                <tr>
-                  <th>Nomor</th>
-                  <th>Tanggal Simpan</th>
-                  <th>Jumlah</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody id="rows"></tbody>
-              <tfoot>
-                <tr>
-                  <th colspan="2" class="text-end">Total</th>
-                  <th id="total"></th>
-                  <th></th>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-          <div class="d-flex justify-content-between align-items-center mt-2" id="pagination">
-            <button class="btn btn-outline-secondary btn-sm" id="prev">Sebelumnya</button>
-            <span id="pageInfo"></span>
-            <button class="btn btn-outline-secondary btn-sm" id="next">Berikutnya</button>
-          </div>
-        </div>
-      </div>
-      <div class="mt-3">
-        <a href="/anggota" class="btn btn-secondary">Kembali</a>
-      </div>
+    <div class="mt-3">
+      <a href="/anggota" class="btn btn-secondary">Kembali</a>
     </div>
   </div>
 </main>

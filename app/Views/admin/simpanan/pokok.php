@@ -1,11 +1,10 @@
 <main class="app-main">
-  <div class="app-content-header">
-    <div class="container-fluid">
-      <div class="row">
-        <div class="col-sm-6">
-          <h3 class="mb-0">Simpanan Pokok</h3>
-        </div>
-      </div>
+  <div class="container-fluid py-3">
+    <div class="d-flex justify-content-between align-items-center">
+      <h5 class="mb-0">Daftar Simpanan Pokok</h5>
+        <a href="https://eqiyu.id/admin/setting/users/create" class="btn btn-sm btn-primary">
+          <i class="bi bi-plus-lg"></i> Tambah Simpanan
+        </a>
     </div>
   </div>
   <div class="app-content">
@@ -14,12 +13,12 @@
         <div class="card-body">
             <div class="row mb-4">
                 <div class="col-md-4">
-                <div class="card shadow-sm border-0 bg-primary text-white">
-                    <div class="card-body">
-                    <h6>Total Transaksi</h6>
-                    <h3 class="fw-bold mb-0" id="totalCount">0</h3>
+                    <div class="card shadow-sm border-0 bg-primary text-white">
+                        <div class="card-body">
+                            <h6>Total Simpanan</h6>
+                            <h3 class="fw-bold mb-0" id="totalSimpanan">Rp 0,00</h3>
+                        </div>
                     </div>
-                </div>
                 </div>
                 <div class="col-md-4">
                 <div class="card shadow-sm border-0 bg-success text-white">
@@ -36,26 +35,6 @@
                     <h3 class="fw-bold mb-0" id="unpaidCount">0</h3>
                     </div>
                 </div>
-                </div>
-            </div>
-            <div class="card shadow-sm border-0 mb-4">
-                <div class="card-body d-flex gap-3">
-                <select class="form-select w-25" id="filterBulan">
-                    <option value="">Filter Bulan</option>
-                    <option>Januari</option>
-                    <option>Februari</option>
-                    <option>Maret</option>
-                </select>
-
-                <select class="form-select w-25" id="filterTahun">
-                    <option value="">Filter Tahun</option>
-                    <option>2025</option>
-                    <option>2024</option>
-                </select>
-
-                <button class="btn btn-secondary" id="btnApplyFilter">
-                    <i class="fas fa-filter"></i> Terapkan
-                </button>
                 </div>
             </div>
             <div class="card shadow-sm border-0">
@@ -124,7 +103,7 @@
             `;
             rowsEl.appendChild(tr);
           });
-          document.getElementById('totalCount').textContent = (meta.totalItems||0);
+          document.getElementById('totalSimpanan').textContent = 'Rp ' + fmt(parseFloat(meta.sumAll||0));
           document.getElementById('paidCount').textContent = (meta.paidCount||0);
           document.getElementById('unpaidCount').textContent = (meta.unpaidCount||0);
           pageInfo.textContent = `Halaman ${meta.page||1} dari ${meta.totalPages||1}`;

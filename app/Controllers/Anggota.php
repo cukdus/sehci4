@@ -281,6 +281,24 @@ class Anggota extends Controller
         ]);
     }
 
+    public function dataSimpanan()
+    {
+        $session = session();
+        $user = $session->get('user');
+        if (!$session->get('isLoggedIn') || !$user) {
+            return redirect()->to('/login');
+        }
+        $role = $user['role'] ?? null;
+        if (!in_array($role, ['anggota', 'anggota_petugas'], true)) {
+            return redirect()->to('/login');
+        }
+        $content = view('anggota/simpanan/datasimpanan');
+        return view('anggota/layout', [
+            'content' => $content,
+            'title' => 'Data Simpanan',
+        ]);
+    }
+
     public function apiSimpananPokok()
     {
         $session = session();
@@ -428,6 +446,136 @@ class Anggota extends Controller
         }
         $payload = [
             'data' => $data,
+            'meta' => [
+                'page' => $page,
+                'perPage' => $perPage,
+                'totalItems' => $totalItems,
+                'totalPages' => (int) ceil(($totalItems ?: 0) / $perPage),
+                'sumAll' => $sumAll,
+                'sumPage' => $sumPage,
+            ],
+        ];
+        return $this->response->setJSON($payload);
+    }
+
+    public function apiSimpananData()
+    {
+        $session = session();
+        $user = $session->get('user');
+        if (!$session->get('isLoggedIn') || !$user) {
+            return $this->response->setStatusCode(401)->setJSON(['error' => 'Unauthorized']);
+        }
+        $role = $user['role'] ?? null;
+        if (!in_array($role, ['anggota', 'anggota_petugas'], true)) {
+            return $this->response->setStatusCode(403)->setJSON(['error' => 'Forbidden']);
+        }
+        $idAnggota = (int) ($user['id_anggota'] ?? 0);
+        $page = max(1, (int) ($this->request->getGet('page') ?? 1));
+        $perPage = 25;
+        $offset = ($page - 1) * $perPage;
+        $db = \Config\Database::connect();
+        $base = $db->table('simpanan')->where('id_anggota', $idAnggota);
+        $totalItems = (int) $base->countAllResults();
+        $sumRow = $db->table('simpanan')->selectSum('jumlah')->where('id_anggota', $idAnggota)->get()->getRowArray();
+        $sumAll = (float) ($sumRow['jumlah'] ?? 0);
+        $rows = $db
+            ->table('simpanan')
+            ->select('id_simpanan, tanggal_simpan, jenis_simpanan, jumlah, status')
+            ->where('id_anggota', $idAnggota)
+            ->orderBy('tanggal_simpan', 'DESC')
+            ->limit($perPage, $offset)
+            ->get()
+            ->getResultArray();
+        $sumPage = 0.0;
+        foreach ($rows as $r) {
+            $sumPage += (float) ($r['jumlah'] ?? 0);
+        }
+        $payload = [
+            'data' => $rows,
+            'meta' => [
+                'page' => $page,
+                'perPage' => $perPage,
+                'totalItems' => $totalItems,
+                'totalPages' => (int) ceil(($totalItems ?: 0) / $perPage),
+                'sumAll' => $sumAll,
+                'sumPage' => $sumPage,
+            ],
+        ];
+        return $this->response->setJSON($payload);
+    }
+
+    public function apiSimpananSummary()
+    {
+        $session = session();
+        $user = $session->get('user');
+        if (!$session->get('isLoggedIn') || !$user) {
+            return $this->response->setStatusCode(401)->setJSON(['error' => 'Unauthorized']);
+        }
+        $role = $user['role'] ?? null;
+        if (!in_array($role, ['anggota', 'anggota_petugas'], true)) {
+            return $this->response->setStatusCode(403)->setJSON(['error' => 'Forbidden']);
+        }
+        $idAnggota = (int) ($user['id_anggota'] ?? 0);
+        $db = \Config\Database::connect();
+        $sumPokok = (float) ($db->table('simpanan')->selectSum('jumlah')->where('id_anggota', $idAnggota)->where('jenis_simpanan', 'pokok')->get()->getRowArray()['jumlah'] ?? 0);
+        $sumWajib = (float) ($db->table('simpanan')->selectSum('jumlah')->where('id_anggota', $idAnggota)->where('jenis_simpanan', 'wajib')->get()->getRowArray()['jumlah'] ?? 0);
+        $sumSukarela = (float) ($db->table('simpanan')->selectSum('jumlah')->where('id_anggota', $idAnggota)->where('jenis_simpanan', 'sukarela')->get()->getRowArray()['jumlah'] ?? 0);
+        $sumPinjaman = 0.0;
+        try {
+            $tables = $db->listTables();
+            if (in_array('pinjaman', $tables, true)) {
+                $sumPinjaman = (float) ($db->table('pinjaman')->selectSum('jumlah_pinjaman')->where('id_anggota', $idAnggota)->get()->getRowArray()['jumlah_pinjaman'] ?? 0);
+            }
+        } catch (\Throwable $e) {
+        }
+        return $this->response->setJSON([
+            'sumPokok' => $sumPokok,
+            'sumWajib' => $sumWajib,
+            'sumSukarela' => $sumSukarela,
+            'sumPinjaman' => $sumPinjaman,
+        ]);
+    }
+
+    public function apiPinjamanData()
+    {
+        $session = session();
+        $user = $session->get('user');
+        if (!$session->get('isLoggedIn') || !$user) {
+            return $this->response->setStatusCode(401)->setJSON(['error' => 'Unauthorized']);
+        }
+        $role = $user['role'] ?? null;
+        if (!in_array($role, ['anggota', 'anggota_petugas'], true)) {
+            return $this->response->setStatusCode(403)->setJSON(['error' => 'Forbidden']);
+        }
+        $idAnggota = (int) ($user['id_anggota'] ?? 0);
+        $page = max(1, (int) ($this->request->getGet('page') ?? 1));
+        $perPage = 25;
+        $offset = ($page - 1) * $perPage;
+        $db = \Config\Database::connect();
+        $totalItems = 0;
+        $sumAll = 0.0;
+        $rows = [];
+        try {
+            $tables = $db->listTables();
+            if (in_array('pinjaman', $tables, true)) {
+                $totalItems = (int) $db->table('pinjaman')->where('id_anggota', $idAnggota)->countAllResults();
+                $sumRow = $db->table('pinjaman')->selectSum('jumlah_pinjaman')->where('id_anggota', $idAnggota)->get()->getRowArray();
+                $sumAll = (float) ($sumRow['jumlah_pinjaman'] ?? 0);
+                $rows = $db->table('pinjaman')
+                    ->select('id_pinjaman, tanggal_pinjam, jumlah_pinjaman, status')
+                    ->where('id_anggota', $idAnggota)
+                    ->orderBy('tanggal_pinjam', 'DESC')
+                    ->limit($perPage, $offset)
+                    ->get()->getResultArray();
+            }
+        } catch (\Throwable $e) {
+        }
+        $sumPage = 0.0;
+        foreach ($rows as $r) {
+            $sumPage += (float) ($r['jumlah_pinjaman'] ?? 0);
+        }
+        $payload = [
+            'data' => $rows,
             'meta' => [
                 'page' => $page,
                 'perPage' => $perPage,

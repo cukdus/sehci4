@@ -16,8 +16,8 @@
             <div class="col-md-4">
               <div class="card shadow-sm border-0 bg-primary text-white">
                 <div class="card-body">
-                  <h6>Total Transaksi</h6>
-                  <h3 class="fw-bold mb-0" id="totalCount">0</h3>
+                  <h6>Total Simpanan</h6>
+                  <h3 class="fw-bold mb-0" id="totalSimpanan">Rp 0,00</h3>
                 </div>
               </div>
             </div>
@@ -124,6 +124,9 @@
             `;
             rowsEl.appendChild(tr);
           });
+          document.getElementById('totalSimpanan').textContent = 'Rp ' + fmt(parseFloat(meta.sumAll||0));
+          document.getElementById('paidCount').textContent = (meta.paidCount||0);
+          document.getElementById('unpaidCount').textContent = (meta.unpaidCount||0);
           pageInfo.textContent = `Halaman ${meta.page||1} dari ${meta.totalPages||1}`;
           prevBtn.disabled = (meta.page||1) <= 1;
           nextBtn.disabled = (meta.page||1) >= (meta.totalPages||1);
