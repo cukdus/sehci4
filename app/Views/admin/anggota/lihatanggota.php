@@ -52,6 +52,8 @@
             <div class="col-md-6">
               <div class="mb-2"><strong>Tanggal Berhenti:</strong> <?= esc($anggota['tanggal_berhenti'] ?? '') ?></div>
               <div class="mb-2"><strong>Alasan Berhenti:</strong> <?= esc($anggota['alasan_berhenti'] ?? '') ?></div>
+              <div class="mb-2"><strong>Alasan Tolak Berhenti:</strong> <?= esc($anggota['alasan_tolak_berhenti'] ?? '') ?></div>
+              <div class="mb-2"><strong>Tanggal Tolak Berhenti:</strong> <?= esc($anggota['tanggal_tolak_berhenti'] ?? '') ?></div>
             </div>
           </div>
 

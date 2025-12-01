@@ -25,3 +25,23 @@ $routes->get('anggota', 'Anggota::index');
 $routes->get('anggota/profil', 'Anggota::profil');
 $routes->get('anggota/profil/edit', 'Anggota::profilEdit');
 $routes->post('anggota/profil/update', 'Anggota::profilUpdate');
+$routes->post('anggota/profil/berhenti', 'Anggota::permohonanBerhenti');
+$routes->get('anggota/simpanan/pokok', 'Anggota::simpananPokok');
+$routes->get('anggota/simpanan/wajib', 'Anggota::simpananWajib');
+$routes->get('anggota/simpanan/sukarela', 'Anggota::simpananSukarela');
+$routes->get('anggota/simpanan/hibah', 'Anggota::hibah');
+$routes->get('anggota/api/simpanan/pokok', 'Anggota::apiSimpananPokok');
+$routes->get('anggota/api/simpanan/wajib', 'Anggota::apiSimpananWajib');
+$routes->get('anggota/api/simpanan/sukarela', 'Anggota::apiSimpananSukarela');
+$routes->get('anggota/api/simpanan/hibah', 'Anggota::apiHibah');
+$routes->get('admin/anggota/berhenti', 'Admin::anggotaBerhenti');
+$routes->post('admin/anggota/berhenti/approve', 'Admin::approveBerhenti');
+$routes->post('admin/anggota/berhenti/reject', 'Admin::rejectBerhenti');
+
+// Admin Simpanan
+$routes->get('admin/simpanan/pokok', 'Admin::simpananPokok');
+$routes->get('admin/simpanan/wajib', 'Admin::simpananWajib');
+$routes->get('admin/simpanan/sukarela', 'Admin::simpananSukarela');
+$routes->get('admin/api/simpanan/pokok', 'Admin::apiSimpananPokok');
+$routes->get('admin/api/simpanan/wajib', 'Admin::apiSimpananWajib');
+$routes->get('admin/api/simpanan/sukarela', 'Admin::apiSimpananSukarela');

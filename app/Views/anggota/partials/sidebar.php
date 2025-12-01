@@ -42,7 +42,13 @@
                   <p>Lihat Profil</p>
                 </a>
               </li>
-              <li class="nav-header">Simpanan</li>
+              <li class="nav-header">Tabungan</li>
+              <li class="nav-item">
+                <a href="./docs/color-mode.html" class="nav-link">
+                  <i class="nav-icon bi bi-star-half"></i>
+                  <p>Data Simpanan</p>
+                </a>
+              </li>
               <li class="nav-item">
                 <a href="#" class="nav-link">
                   <i class="nav-icon bi bi-ui-checks-grid"></i>
@@ -53,81 +59,50 @@
                 </a>
                 <ul class="nav nav-treeview">
                   <li class="nav-item">
-                    <a href="./docs/components/main-header.html" class="nav-link">
-                      <i class="nav-icon bi bi-circle"></i>
-                      <p>Data Simpanan</p>
-                    </a>
-                  </li>
-                  <li class="nav-item">
-                    <a href="./docs/components/main-sidebar.html" class="nav-link">
+                    <a href="/anggota/simpanan/pokok" class="nav-link">
                       <i class="nav-icon bi bi-circle"></i>
                       <p>Simpanan Pokok</p>
                     </a>
                   </li>
                   <li class="nav-item">
-                    <a href="./docs/components/main-sidebar.html" class="nav-link">
+                    <a href="/anggota/simpanan/wajib" class="nav-link">
                       <i class="nav-icon bi bi-circle"></i>
                       <p>Simpanan Wajib</p>
                     </a>
                   </li>
                   <li class="nav-item">
-                    <a href="./docs/components/main-sidebar.html" class="nav-link">
+                    <a href="/anggota/simpanan/sukarela" class="nav-link">
                       <i class="nav-icon bi bi-circle"></i>
                       <p>Simpanan Sukarela</p>
                     </a>
                   </li>
                   <li class="nav-item">
-                    <a href="./docs/components/main-sidebar.html" class="nav-link">
+                    <a href="/anggota/simpanan/hibah" class="nav-link">
                       <i class="nav-icon bi bi-circle"></i>
                       <p>Hibah</p>
                     </a>
                   </li>
                 </ul>
               </li>
-              <li class="nav-item">
-                <a href="/admin/anggota" class="nav-link">
-                  <i class="nav-icon bi bi-people"></i>
-                  <p>Pokok</p>
-                </a>
-              </li>
-              <li class="nav-item">
-                <a href="./docs/layout.html" class="nav-link">
-                  <i class="nav-icon bi bi-grip-horizontal"></i>
-                  <p>Wajib</p>
-                </a>
-              </li>
-              <li class="nav-item">
-                <a href="./docs/color-mode.html" class="nav-link">
-                  <i class="nav-icon bi bi-star-half"></i>
-                  <p>Sukarela</p>
-                </a>
-              </li>
-              <li class="nav-item">
-                <a href="./docs/color-mode.html" class="nav-link">
-                  <i class="nav-icon bi bi-star-half"></i>
-                  <p>Hibah</p>
-                </a>
-              </li>
               <li class="nav-header">Transaksi</li>
               <li class="nav-item">
-                <a href="/admin/pinjaman" class="nav-link">
+                <a href="/anggota/transaksi" class="nav-link">
+                  <i class="nav-icon bi bi-star-half"></i>
+                  <p>Data Transaksi</p>
+                </a>
+              </li>
+              <li class="nav-item">
+                <a href="/anggota/pinjaman" class="nav-link">
                   <i class="nav-icon bi bi-download"></i>
                   <p>Pinjaman</p>
                 </a>
               </li>
               <li class="nav-item">
-                <a href="./docs/layout.html" class="nav-link">
+                <a href="/anggota/angsuran" class="nav-link">
                   <i class="nav-icon bi bi-grip-horizontal"></i>
                   <p>Angsuran</p>
                 </a>
               </li>
-              <li class="nav-item">
-                <a href="./docs/color-mode.html" class="nav-link">
-                  <i class="nav-icon bi bi-star-half"></i>
-                  <p>Color Mode</p>
-                </a>
-              </li>
-              <li class="nav-header">Tabungan</li>
               <li class="nav-header">Settings</li>
               <li class="nav-item">
                 <a href="#" class="nav-link">

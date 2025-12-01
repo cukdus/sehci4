@@ -19,6 +19,12 @@
               <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>
           <?php endif; ?>
+          <?php if (!empty($anggota['alasan_tolak_berhenti'])): ?>
+            <div class="alert alert-warning alert-dismissible fade show" role="alert">
+              Permohonan berhenti ditolak: <?= esc($anggota['alasan_tolak_berhenti']) ?>
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+          <?php endif; ?>
           <?php if (session()->getFlashdata('warning')): ?>
             <div class="alert alert-warning alert-dismissible fade show" role="alert">
               <?= esc(session()->getFlashdata('warning')) ?>
@@ -64,15 +70,15 @@
               <div class="mb-2"><strong>No KK:</strong> <?= esc($anggota['no_kk'] ?? '') ?></div>
               <div class="mb-2"><strong>No NPWP:</strong> <?= esc($anggota['no_npwp'] ?? '') ?></div>
               <?php $bsraw = (string) ($anggota['basic_skill'] ?? '');
-$bs = '';
-if ($bsraw !== '') {
-    if ($bsraw[0] === '[') {
-        $arr = json_decode($bsraw, true) ?: [];
-        $bs = implode(', ', $arr);
-    } else {
-        $bs = $bsraw;
-    }
-} ?>
+              $bs = '';
+              if ($bsraw !== '') {
+                if ($bsraw[0] === '[') {
+                  $arr = json_decode($bsraw, true) ?: [];
+                  $bs = implode(', ', $arr);
+                } else {
+                  $bs = $bsraw;
+                }
+              } ?>
               <div class="mb-2"><strong>Basic Skill:</strong> <?= esc($bs) ?></div>
               <div class="mb-2"><strong>Pengalaman Kerja:</strong> <?= esc($anggota['pengalaman_kerja'] ?? '') ?></div>
               <div class="mb-2"><strong>Pengalaman Organisasi:</strong> <?= esc($anggota['pengalaman_organisasi'] ?? '') ?></div>
@@ -80,12 +86,38 @@ if ($bsraw !== '') {
             <div class="col-md-6">
               <div class="mb-2"><strong>Tanggal Berhenti:</strong> <?= esc($anggota['tanggal_berhenti'] ?? '') ?></div>
               <div class="mb-2"><strong>Alasan Berhenti:</strong> <?= esc($anggota['alasan_berhenti'] ?? '') ?></div>
+              <div class="mb-2"><strong>Alasan Tolak Berhenti:</strong> <?= esc($anggota['alasan_tolak_berhenti'] ?? '') ?></div>
+              <div class="mb-2"><strong>Tanggal Tolak Berhenti:</strong> <?= esc($anggota['tanggal_tolak_berhenti'] ?? '') ?></div>
+              <div class="mt-2">
+                <button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#modalBerhenti">Permohonan Berhenti</button>
+              </div>
             </div>
           </div>
 
           <div class="mt-4 d-flex gap-2">
             <a href="/anggota" class="btn btn-secondary">Kembali</a>
             <a href="/anggota/profil/edit" class="btn btn-warning">Edit Profil</a>
+          </div>
+        </div>
+        <div class="modal fade" id="modalBerhenti" tabindex="-1" aria-hidden="true">
+          <div class="modal-dialog">
+            <form action="/anggota/profil/berhenti" method="post" class="modal-content">
+              <?= csrf_field() ?>
+              <div class="modal-header">
+                <h5 class="modal-title">Permohonan Berhenti</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+              </div>
+              <div class="modal-body">
+                <div class="mb-3">
+                  <label class="form-label">Alasan Berhenti</label>
+                  <textarea name="alasan" class="form-control" rows="3" placeholder="Tuliskan alasan berhenti"></textarea>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                <button type="submit" class="btn btn-danger">Kirim Permohonan</button>
+              </div>
+            </form>
           </div>
         </div>
       </div>

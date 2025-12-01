@@ -43,17 +43,35 @@
                   <p>Data Anggota</p>
                 </a>
               </li>
+              <li class="nav-header">Simpanan</li>
               <li class="nav-item">
-                <a href="./docs/layout.html" class="nav-link">
-                  <i class="nav-icon bi bi-grip-horizontal"></i>
-                  <p>Layout</p>
+                <a href="#" class="nav-link">
+                  <i class="nav-icon bi bi-ui-checks-grid"></i>
+                  <p>
+                    Simpanan
+                    <i class="nav-arrow bi bi-chevron-right"></i>
+                  </p>
                 </a>
-              </li>
-              <li class="nav-item">
-                <a href="./docs/color-mode.html" class="nav-link">
-                  <i class="nav-icon bi bi-star-half"></i>
-                  <p>Color Mode</p>
-                </a>
+                <ul class="nav nav-treeview">
+                  <li class="nav-item">
+                    <a href="/admin/simpanan/wajib" class="nav-link">
+                      <i class="nav-icon bi bi-circle"></i>
+                      <p>Simpanan Wajib</p>
+                    </a>
+                  </li>
+                  <li class="nav-item">
+                    <a href="/admin/simpanan/sukarela" class="nav-link">
+                      <i class="nav-icon bi bi-circle"></i>
+                      <p>Simpanan Sukarela</p>
+                    </a>
+                  </li>
+                  <li class="nav-item">
+                    <a href="/admin/simpanan/pokok" class="nav-link">
+                      <i class="nav-icon bi bi-circle"></i>
+                      <p>Simpanan Pokok</p>
+                    </a>
+                  </li>
+                </ul>
               </li>
               <li class="nav-header">Transaksi</li>
               <li class="nav-item">
