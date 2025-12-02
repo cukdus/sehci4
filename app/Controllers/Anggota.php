@@ -263,6 +263,24 @@ class Anggota extends Controller
         ]);
     }
 
+    public function simpananSukarelaTambah()
+    {
+        $session = session();
+        $user = $session->get('user');
+        if (!$session->get('isLoggedIn') || !$user) {
+            return redirect()->to('/login');
+        }
+        $role = $user['role'] ?? null;
+        if (!in_array($role, ['anggota', 'anggota_petugas'], true)) {
+            return redirect()->to('/login');
+        }
+        $content = view('anggota/simpanan/tambahsukarela');
+        return view('anggota/layout', [
+            'content' => $content,
+            'title' => 'Tambah Simpanan Sukarela',
+        ]);
+    }
+
     public function hibah()
     {
         $session = session();
@@ -387,12 +405,30 @@ class Anggota extends Controller
         }
         $idAnggota = (int) ($user['id_anggota'] ?? 0);
         $page = max(1, (int) ($this->request->getGet('page') ?? 1));
+        $tipe = trim((string) ($this->request->getGet('tipe') ?? ''));
         $perPage = 25;
         $offset = ($page - 1) * $perPage;
         $db = \Config\Database::connect();
-        $totalItems = (int) $db->table('simpanan')->where('id_anggota', $idAnggota)->where('jenis_simpanan', 'sukarela')->countAllResults();
-        $sumAllRow = $db->table('simpanan')->selectSum('jumlah')->where('id_anggota', $idAnggota)->where('jenis_simpanan', 'sukarela')->get()->getRowArray();
-        $rows = $db->table('simpanan')->where('id_anggota', $idAnggota)->where('jenis_simpanan', 'sukarela')->orderBy('tanggal_simpan', 'DESC')->limit($perPage, $offset)->get()->getResultArray();
+        $base = $db->table('simpanan')->where('id_anggota', $idAnggota)->where('jenis_simpanan', 'sukarela');
+        if ($tipe !== '') {
+            $base = $base->where('tipe_sukarela', $tipe);
+        }
+        $totalItems = (int) $base->countAllResults();
+        $sumAllQ = $db
+            ->table('simpanan')
+            ->selectSum('jumlah')
+            ->where('id_anggota', $idAnggota)
+            ->where('jenis_simpanan', 'sukarela')
+            ->where('status !=', 'pending');
+        if ($tipe !== '') {
+            $sumAllQ = $sumAllQ->where('tipe_sukarela', $tipe);
+        }
+        $sumAllRow = $sumAllQ->get()->getRowArray();
+        $rowsQ = $db->table('simpanan')->where('id_anggota', $idAnggota)->where('jenis_simpanan', 'sukarela');
+        if ($tipe !== '') {
+            $rowsQ = $rowsQ->where('tipe_sukarela', $tipe);
+        }
+        $rows = $rowsQ->orderBy('tanggal_simpan', 'DESC')->limit($perPage, $offset)->get()->getResultArray();
         $sumPage = 0.0;
         foreach ($rows as $r) {
             $sumPage += (float) ($r['jumlah'] ?? 0);
@@ -474,14 +510,15 @@ class Anggota extends Controller
         $perPage = 25;
         $offset = ($page - 1) * $perPage;
         $db = \Config\Database::connect();
-        $base = $db->table('simpanan')->where('id_anggota', $idAnggota);
+        $base = $db->table('simpanan')->where('id_anggota', $idAnggota)->where('status !=', 'pending');
         $totalItems = (int) $base->countAllResults();
-        $sumRow = $db->table('simpanan')->selectSum('jumlah')->where('id_anggota', $idAnggota)->get()->getRowArray();
+        $sumRow = $db->table('simpanan')->selectSum('jumlah')->where('id_anggota', $idAnggota)->where('status !=', 'pending')->get()->getRowArray();
         $sumAll = (float) ($sumRow['jumlah'] ?? 0);
         $rows = $db
             ->table('simpanan')
             ->select('id_simpanan, tanggal_simpan, jenis_simpanan, jumlah, status')
             ->where('id_anggota', $idAnggota)
+            ->where('status !=', 'pending')
             ->orderBy('tanggal_simpan', 'DESC')
             ->limit($perPage, $offset)
             ->get()
@@ -517,9 +554,9 @@ class Anggota extends Controller
         }
         $idAnggota = (int) ($user['id_anggota'] ?? 0);
         $db = \Config\Database::connect();
-        $sumPokok = (float) ($db->table('simpanan')->selectSum('jumlah')->where('id_anggota', $idAnggota)->where('jenis_simpanan', 'pokok')->get()->getRowArray()['jumlah'] ?? 0);
-        $sumWajib = (float) ($db->table('simpanan')->selectSum('jumlah')->where('id_anggota', $idAnggota)->where('jenis_simpanan', 'wajib')->get()->getRowArray()['jumlah'] ?? 0);
-        $sumSukarela = (float) ($db->table('simpanan')->selectSum('jumlah')->where('id_anggota', $idAnggota)->where('jenis_simpanan', 'sukarela')->get()->getRowArray()['jumlah'] ?? 0);
+        $sumPokok = (float) ($db->table('simpanan')->selectSum('jumlah')->where('id_anggota', $idAnggota)->where('jenis_simpanan', 'pokok')->where('status', 'aktif')->get()->getRowArray()['jumlah'] ?? 0);
+        $sumWajib = (float) ($db->table('simpanan')->selectSum('jumlah')->where('id_anggota', $idAnggota)->where('jenis_simpanan', 'wajib')->where('status', 'aktif')->get()->getRowArray()['jumlah'] ?? 0);
+        $sumSukarela = (float) ($db->table('simpanan')->selectSum('jumlah')->where('id_anggota', $idAnggota)->where('jenis_simpanan', 'sukarela')->where('status', 'aktif')->get()->getRowArray()['jumlah'] ?? 0);
         $sumPinjaman = 0.0;
         try {
             $tables = $db->listTables();
@@ -561,12 +598,14 @@ class Anggota extends Controller
                 $totalItems = (int) $db->table('pinjaman')->where('id_anggota', $idAnggota)->countAllResults();
                 $sumRow = $db->table('pinjaman')->selectSum('jumlah_pinjaman')->where('id_anggota', $idAnggota)->get()->getRowArray();
                 $sumAll = (float) ($sumRow['jumlah_pinjaman'] ?? 0);
-                $rows = $db->table('pinjaman')
+                $rows = $db
+                    ->table('pinjaman')
                     ->select('id_pinjaman, tanggal_pinjam, jumlah_pinjaman, status')
                     ->where('id_anggota', $idAnggota)
                     ->orderBy('tanggal_pinjam', 'DESC')
                     ->limit($perPage, $offset)
-                    ->get()->getResultArray();
+                    ->get()
+                    ->getResultArray();
             }
         } catch (\Throwable $e) {
         }
@@ -586,5 +625,158 @@ class Anggota extends Controller
             ],
         ];
         return $this->response->setJSON($payload);
+    }
+
+    public function tambahSukarela()
+    {
+        $session = session();
+        $user = $session->get('user');
+        \log_message('info', 'tambahSukarela entered, method=' . $this->request->getMethod() . ', user=' . json_encode($user, JSON_UNESCAPED_SLASHES));
+        if (!$session->get('isLoggedIn') || !$user) {
+            return redirect()->to('/login');
+        }
+        $role = $user['role'] ?? null;
+        if (!in_array($role, ['anggota', 'anggota_petugas'], true)) {
+            return redirect()->to('/login');
+        }
+        if (strtolower($this->request->getMethod()) === 'post') {
+            $idAnggota = (int) ($user['id_anggota'] ?? 0);
+            $postIdAnggota = (int) ($this->request->getPost('id_anggota') ?? 0);
+            if ($idAnggota <= 0 && $postIdAnggota > 0) {
+                $idAnggota = $postIdAnggota;
+            }
+            if ($idAnggota <= 0) {
+                $idUser = (int) ($user['id_user'] ?? 0);
+                if ($idUser > 0) {
+                    try {
+                        $db = \Config\Database::connect();
+                        $u = $db->table('users')->select('id_anggota')->where('id_user', $idUser)->get()->getRowArray();
+                        if (!empty($u['id_anggota'])) {
+                            $idAnggota = (int) $u['id_anggota'];
+                            $user['id_anggota'] = $idAnggota;
+                            $session->set('user', $user);
+                        }
+                    } catch (\Throwable $e) {
+                        \log_message('error', 'Lookup id_anggota by id_user failed: ' . $e->getMessage());
+                    }
+                }
+            }
+            if ($idAnggota <= 0) {
+                \log_message('info', 'Sukarela validation failed: id_anggota invalid');
+                return redirect()->to('/anggota/simpanan/sukarela')->with('error', 'Akun tidak terkait data anggota.');
+            }
+            $tanggal = $this->request->getPost('tanggal_simpan');
+            $jumlahRaw = trim((string) ($this->request->getPost('jumlah') ?? '0'));
+            $jumlah = str_replace([',', ' '], ['', ''], $jumlahRaw);
+            if ($jumlah === '' || !is_numeric($jumlah)) {
+                $jumlah = '0';
+            }
+            $tipe = trim((string) ($this->request->getPost('tipe_sukarela') ?? ''));
+            $jangka = (int) ($this->request->getPost('jangka_waktu') ?? 0);
+            \log_message('info', 'Sukarela POST data: tanggal=' . ($tanggal ?: 'NULL') . ', jumlah=' . $jumlah . ', tipe=' . ($tipe ?: 'NULL'));
+            if (!$tanggal || $jumlah <= 0 || $tipe === '' || ($tipe === 'berjangka' && $jangka <= 0)) {
+                \log_message('info', 'Sukarela validation failed: tanggal=' . ($tanggal ?: 'NULL') . ', jumlah=' . $jumlah . ', tipe=' . ($tipe ?: 'NULL'));
+                return redirect()->to('/anggota/simpanan/sukarela')->with('error', 'Tanggal, jumlah, dan tipe wajib diisi.');
+            }
+            $db = \Config\Database::connect();
+            // Verifikasi konsistensi id_anggota terhadap user.id_user
+            try {
+                $idUser = (int) ($user['id_user'] ?? 0);
+                if ($idUser > 0) {
+                    $u = $db->table('users')->select('id_anggota')->where('id_user', $idUser)->get()->getRowArray();
+                    if (!empty($u['id_anggota']) && (int) $u['id_anggota'] !== $idAnggota) {
+                        $idAnggota = (int) $u['id_anggota'];
+                        $user['id_anggota'] = $idAnggota;
+                        $session->set('user', $user);
+                    }
+                }
+            } catch (\Throwable $e) {
+                \log_message('error', 'Verify id_anggota failed: ' . $e->getMessage());
+            }
+            try {
+                $dbNameRow = $db->query('SELECT DATABASE() AS db')->getRowArray();
+                $dbName = (string) ($dbNameRow['db'] ?? '');
+                $tables = $db->listTables();
+                $hasSimpanan = in_array('simpanan', $tables, true);
+                \log_message('info', 'Insert sukarela start on DB=' . $dbName . ' tableExists=' . ($hasSimpanan ? 'yes' : 'no') . ' id_anggota=' . $idAnggota . ', tanggal=' . $tanggal . ', jumlah=' . $jumlah . ', tipe=' . $tipe);
+                if (!$hasSimpanan) {
+                    return redirect()->to('/anggota/simpanan/sukarela')->with('error', 'Tabel simpanan tidak ditemukan pada database ' . ($dbName ?: '(unknown)'));
+                }
+            } catch (\Throwable $e) {
+                \log_message('error', 'DB diagnose failed: ' . $e->getMessage());
+            }
+            $dataInsert = [
+                'id_anggota' => $idAnggota,
+                'tanggal_simpan' => $tanggal,
+                'jenis_simpanan' => 'sukarela',
+                'jumlah' => number_format((float) $jumlah, 2, '.', ''),
+                'status' => 'pending',
+                'tipe_sukarela' => $tipe,
+                'jangka_waktu' => $tipe === 'berjangka' ? $jangka : null,
+            ];
+            try {
+                $fields = $db->getFieldNames('simpanan');
+            } catch (\Throwable $e) {
+                $fields = ['id_anggota', 'tanggal_simpan', 'jenis_simpanan', 'jumlah', 'status', 'tipe_sukarela', 'jangka_waktu'];
+            }
+            $allowed = array_flip($fields);
+            $dataFiltered = array_intersect_key($dataInsert, $allowed);
+            \log_message('info', 'Filtered insert payload: ' . json_encode($dataFiltered, JSON_UNESCAPED_SLASHES));
+            try {
+                $ok = $db->table('simpanan')->insert($dataFiltered);
+            } catch (\Throwable $e) {
+                \log_message('error', 'Insert sukarela exception: ' . $e->getMessage());
+                $ok = false;
+            }
+            \log_message('info', 'Last query: ' . (string) $db->getLastQuery());
+            if ($ok) {
+                $newId = (int) $db->insertID();
+                \log_message('info', 'Insert sukarela success id=' . $newId);
+                return redirect()->to('/anggota/simpanan/sukarela')->with('success', 'Simpanan sukarela berhasil ditambahkan.');
+            }
+            $err = $db->error();
+            \log_message('error', 'Insert sukarela failed: ' . json_encode($err, JSON_UNESCAPED_SLASHES));
+            $msg = 'Gagal menyimpan.';
+            if (!empty($err['message'])) {
+                $msg .= ' ' . $err['message'];
+            }
+            return redirect()->to('/anggota/simpanan/sukarela')->with('error', $msg);
+        }
+        return redirect()->to('/anggota/simpanan/sukarela');
+    }
+
+    public function tambahWajib()
+    {
+        $session = session();
+        $user = $session->get('user');
+        if (!$session->get('isLoggedIn') || !$user) {
+            return redirect()->to('/login');
+        }
+        $role = $user['role'] ?? null;
+        if (!in_array($role, ['anggota', 'anggota_petugas'], true)) {
+            return redirect()->to('/login');
+        }
+        if ($this->request->getMethod() !== 'post') {
+            return redirect()->to('/anggota/simpanan/wajib');
+        }
+        $idAnggota = (int) ($user['id_anggota'] ?? 0);
+        $tanggal = $this->request->getPost('tanggal_simpan');
+        $jumlah = (float) ($this->request->getPost('jumlah') ?? 0);
+
+        if (!$tanggal || $jumlah <= 0) {
+            return redirect()->to('/anggota/simpanan/wajib')->with('error', 'Tanggal dan jumlah wajib diisi.');
+        }
+        $db = \Config\Database::connect();
+        $ok = $db->table('simpanan')->insert([
+            'id_anggota' => $idAnggota,
+            'tanggal_simpan' => $tanggal,
+            'jenis_simpanan' => 'wajib',
+            'jumlah' => $jumlah,
+            'status' => 'tercatat',
+        ]);
+        if ($ok) {
+            return redirect()->to('/anggota/simpanan/wajib')->with('success', 'Simpanan wajib berhasil ditambahkan.');
+        }
+        return redirect()->to('/anggota/simpanan/wajib')->with('error', 'Gagal menyimpan.');
     }
 }

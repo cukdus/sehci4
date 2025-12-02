@@ -38,11 +38,11 @@
             </div>
           <?php endif; ?>
           <div class="row g-4">
-            <div class="col-md-3 text-center">
+            <div class="col-md-6 text-center">
               <?php $foto = trim((string) ($anggota['foto'] ?? '')); ?>
               <img src="<?= $foto !== '' ? esc($foto) : 'https://via.placeholder.com/160x160?text=Foto' ?>" alt="Foto Anggota" class="img-thumbnail" style="max-width:300px; height:auto;" />
             </div>
-            <div class="col-md-9">
+            <div class="col-md-6">
               <div class="d-flex justify-content-between align-items-start flex-wrap">
                 <div>
                   <h3 class="mb-4"><?= esc($anggota['nama'] ?? '') ?></h3>

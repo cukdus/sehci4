@@ -31,7 +31,7 @@
       href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css"
       crossorigin="anonymous"
     />
-    <link rel="stylesheet" href="./assets/adminlte/css/adminlte.css" />
+    <link rel="stylesheet" href="<?= base_url('assets/adminlte/css/adminlte.css') ?>" />
     <link
       rel="stylesheet"
       href="https://cdn.jsdelivr.net/npm/apexcharts@3.37.1/dist/apexcharts.css"

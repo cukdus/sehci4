@@ -30,8 +30,7 @@
                   <th class="sortable" data-key="id_anggota">ID <i class="bi bi-arrow-down-up ms-1 sort-icon"></i></th>
                   <th class="sortable" data-key="no_anggota">No Anggota <i class="bi bi-arrow-down-up ms-1 sort-icon"></i></th>
                   <th class="sortable" data-key="nama">Nama <i class="bi bi-arrow-down-up ms-1 sort-icon"></i></th>
-                  <th data-key="jenis_kelamin">Jenis Kelamin</th>
-                  <th data-key="alamat">Alamat</th>
+                  <th>Simpan-Pinjam</th>
                   <th data-key="no_telepon">No Telepon</th>
                   <th data-key="email">Email</th>
                   <th data-key="status">Status</th>
@@ -75,8 +74,12 @@
         <td>${a.id_anggota}</td>
         <td>${a.no_anggota || ''}</td>
         <td>${a.nama || ''}</td>
-        <td>${a.jenis_kelamin || '-'}</td>
-        <td>${a.alamat || '-'}</td>
+        <td>
+          <div class="btn-group" role="group">
+            <a href="/admin/anggota/lihatsimpan/${a.id_anggota}" class="btn btn-sm btn-success" title="Lihat Simpan"><i class="bi bi-piggy-bank"></i> Simpan</a>
+            <a href="/admin/anggota/lihatpinjam/${a.id_anggota}" class="btn btn-sm btn-warning" title="Lihat Pinjam"><i class="bi bi-cash-coin"></i> Pinjam</a>
+          </div>
+        </td>
         <td>${a.no_telepon || '-'}</td>
         <td>${a.email || '-'}</td>
         <td><span class="badge text-bg-secondary">${a.status || ''}</span></td>

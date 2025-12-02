@@ -295,6 +295,116 @@ class Admin extends Controller
         ]);
     }
 
+    public function anggotaLihatSimpan(int $id)
+    {
+        $session = session();
+        $user = $session->get('user');
+        if (!$session->get('isLoggedIn') || !$user) {
+            return redirect()->to('/login');
+        }
+        $role = $user['role'] ?? null;
+        if (!in_array($role, ['petugas', 'admin', 'anggota_petugas'], true)) {
+            return redirect()->to('/login');
+        }
+        $db = \Config\Database::connect();
+        $anggota = $db->table('anggota')->where('id_anggota', $id)->get()->getRowArray();
+        if (!$anggota) {
+            return redirect()->to('/admin/anggota')->with('error', 'Anggota tidak ditemukan');
+        }
+        $content = view('admin/anggota/lihatsimpan', ['anggota' => $anggota]);
+        return view('admin/layout', [
+            'content' => $content,
+            'title' => 'Simpanan Anggota',
+        ]);
+    }
+
+    public function anggotaLihatPinjam(int $id)
+    {
+        $session = session();
+        $user = $session->get('user');
+        if (!$session->get('isLoggedIn') || !$user) {
+            return redirect()->to('/login');
+        }
+        $role = $user['role'] ?? null;
+        if (!in_array($role, ['petugas', 'admin', 'anggota_petugas'], true)) {
+            return redirect()->to('/login');
+        }
+        $db = \Config\Database::connect();
+        $anggota = $db->table('anggota')->where('id_anggota', $id)->get()->getRowArray();
+        if (!$anggota) {
+            return redirect()->to('/admin/anggota')->with('error', 'Anggota tidak ditemukan');
+        }
+        $content = view('admin/anggota/lihatpinjam', ['anggota' => $anggota]);
+        return view('admin/layout', [
+            'content' => $content,
+            'title' => 'Pinjaman Anggota',
+        ]);
+    }
+
+    public function apiSimpananAnggota(int $id)
+    {
+        $session = session();
+        $user = $session->get('user');
+        if (!$session->get('isLoggedIn') || !$user) {
+            return $this->response->setStatusCode(401)->setJSON(['error' => 'Unauthorized']);
+        }
+        $role = $user['role'] ?? null;
+        if (!in_array($role, ['petugas', 'admin', 'anggota_petugas'], true)) {
+            return $this->response->setStatusCode(403)->setJSON(['error' => 'Forbidden']);
+        }
+        $page = max(1, (int) ($this->request->getGet('page') ?? 1));
+        $perPage = 25;
+        $offset = ($page - 1) * $perPage;
+        $db = \Config\Database::connect();
+        $count = (int) $db->table('simpanan')->where('id_anggota', $id)->countAllResults();
+        $sumRow = $db->table('simpanan')->selectSum('jumlah')->where('id_anggota', $id)->get()->getRowArray();
+        $rows = $db
+            ->table('simpanan')
+            ->select('id_simpanan, tanggal_simpan, jenis_simpanan, tipe_sukarela, jumlah, status, tanggal_jatuh_tempo')
+            ->where('id_anggota', $id)
+            ->orderBy('tanggal_simpan', 'DESC')
+            ->limit($perPage, $offset)
+            ->get()
+            ->getResultArray();
+        $sumPage = 0.0;
+        foreach ($rows as $r) {
+            $sumPage += (float) ($r['jumlah'] ?? 0);
+        }
+        return $this->response->setJSON([
+            'data' => $rows,
+            'meta' => [
+                'page' => $page,
+                'perPage' => $perPage,
+                'totalItems' => $count,
+                'totalPages' => (int) ceil($count / $perPage),
+                'sumAll' => (float) ($sumRow['jumlah'] ?? 0),
+                'sumPage' => $sumPage,
+            ],
+        ]);
+    }
+
+    public function apiSimpananAnggotaSummary(int $id)
+    {
+        $session = session();
+        $user = $session->get('user');
+        if (!$session->get('isLoggedIn') || !$user) {
+            return $this->response->setStatusCode(401)->setJSON(['error' => 'Unauthorized']);
+        }
+        $role = $user['role'] ?? null;
+        if (!in_array($role, ['petugas', 'admin', 'anggota_petugas'], true)) {
+            return $this->response->setStatusCode(403)->setJSON(['error' => 'Forbidden']);
+        }
+        $db = \Config\Database::connect();
+        $sumPokok = (float) ($db->table('simpanan')->selectSum('jumlah')->where('id_anggota', $id)->where('jenis_simpanan', 'pokok')->where('status', 'aktif')->get()->getRowArray()['jumlah'] ?? 0);
+        $sumWajib = (float) ($db->table('simpanan')->selectSum('jumlah')->where('id_anggota', $id)->where('jenis_simpanan', 'wajib')->where('status', 'aktif')->get()->getRowArray()['jumlah'] ?? 0);
+        $sumSukarela = (float) ($db->table('simpanan')->selectSum('jumlah')->where('id_anggota', $id)->where('jenis_simpanan', 'sukarela')->where('status', 'aktif')->get()->getRowArray()['jumlah'] ?? 0);
+        return $this->response->setJSON([
+            'sumPokok' => $sumPokok,
+            'sumWajib' => $sumWajib,
+            'sumSukarela' => $sumSukarela,
+        ]);
+    }
+
     public function anggotaData()
     {
         $session = session();
@@ -540,6 +650,24 @@ class Admin extends Controller
         ]);
     }
 
+    public function simpananData()
+    {
+        $session = session();
+        $user = $session->get('user');
+        if (!$session->get('isLoggedIn') || !$user) {
+            return redirect()->to('/login');
+        }
+        $role = $user['role'] ?? null;
+        if (!in_array($role, ['petugas', 'admin', 'anggota_petugas'], true)) {
+            return redirect()->to('/login');
+        }
+        $content = view('admin/simpanan/datasimpanan');
+        return view('admin/layout', [
+            'content' => $content,
+            'title' => 'Data Simpanan',
+        ]);
+    }
+
     public function apiSimpananPokok()
     {
         $session = session();
@@ -552,21 +680,28 @@ class Admin extends Controller
             return $this->response->setStatusCode(403)->setJSON(['error' => 'Forbidden']);
         }
         $page = max(1, (int) ($this->request->getGet('page') ?? 1));
+        $status = trim((string) ($this->request->getGet('status') ?? ''));
         $perPage = 25;
         $offset = ($page - 1) * $perPage;
         $db = \Config\Database::connect();
-        $count = (int) $db->table('simpanan')->where('jenis_simpanan', 'pokok')->countAllResults();
+        $countBase = $db->table('simpanan')->where('jenis_simpanan', 'pokok');
+        if ($status === 'aktif' || $status === 'pending') {
+            $countBase = $countBase->where('status', $status);
+        }
+        $count = (int) $countBase->countAllResults();
         $paidCount = (int) $db->table('simpanan')->where('jenis_simpanan', 'pokok')->where('status', 'aktif')->countAllResults();
+        $pendingCount = (int) $db->table('simpanan')->where('jenis_simpanan', 'pokok')->where('status', 'pending')->countAllResults();
         $sumRow = $db->table('simpanan')->selectSum('jumlah')->where('jenis_simpanan', 'pokok')->get()->getRowArray();
-        $rows = $db
+        $rowsBase = $db
             ->table('simpanan')
             ->select('simpanan.*, anggota.no_anggota, anggota.nama')
             ->join('anggota', 'anggota.id_anggota = simpanan.id_anggota', 'left')
             ->where('simpanan.jenis_simpanan', 'pokok')
-            ->orderBy('simpanan.tanggal_simpan', 'DESC')
-            ->limit($perPage, $offset)
-            ->get()
-            ->getResultArray();
+            ->orderBy('simpanan.tanggal_simpan', 'DESC');
+        if ($status === 'aktif' || $status === 'pending') {
+            $rowsBase = $rowsBase->where('simpanan.status', $status);
+        }
+        $rows = $rowsBase->limit($perPage, $offset)->get()->getResultArray();
         $sumPage = 0.0;
         foreach ($rows as $r) {
             $sumPage += (float) ($r['jumlah'] ?? 0);
@@ -581,7 +716,7 @@ class Admin extends Controller
                 'sumAll' => (float) ($sumRow['jumlah'] ?? 0),
                 'sumPage' => $sumPage,
                 'paidCount' => $paidCount,
-                'unpaidCount' => max(0, $count - $paidCount),
+                'unpaidCount' => $pendingCount,
             ],
         ]);
     }
@@ -598,21 +733,28 @@ class Admin extends Controller
             return $this->response->setStatusCode(403)->setJSON(['error' => 'Forbidden']);
         }
         $page = max(1, (int) ($this->request->getGet('page') ?? 1));
+        $status = trim((string) ($this->request->getGet('status') ?? ''));
         $perPage = 25;
         $offset = ($page - 1) * $perPage;
         $db = \Config\Database::connect();
-        $count = (int) $db->table('simpanan')->where('jenis_simpanan', 'wajib')->countAllResults();
+        $countBase = $db->table('simpanan')->where('jenis_simpanan', 'wajib');
+        if ($status === 'aktif' || $status === 'pending') {
+            $countBase = $countBase->where('status', $status);
+        }
+        $count = (int) $countBase->countAllResults();
         $paidCount = (int) $db->table('simpanan')->where('jenis_simpanan', 'wajib')->where('status', 'aktif')->countAllResults();
+        $pendingCount = (int) $db->table('simpanan')->where('jenis_simpanan', 'wajib')->where('status', 'pending')->countAllResults();
         $sumRow = $db->table('simpanan')->selectSum('jumlah')->where('jenis_simpanan', 'wajib')->get()->getRowArray();
-        $rows = $db
+        $rowsBase = $db
             ->table('simpanan')
             ->select('simpanan.*, anggota.no_anggota, anggota.nama')
             ->join('anggota', 'anggota.id_anggota = simpanan.id_anggota', 'left')
             ->where('simpanan.jenis_simpanan', 'wajib')
-            ->orderBy('simpanan.tanggal_simpan', 'DESC')
-            ->limit($perPage, $offset)
-            ->get()
-            ->getResultArray();
+            ->orderBy('simpanan.tanggal_simpan', 'DESC');
+        if ($status === 'aktif' || $status === 'pending') {
+            $rowsBase = $rowsBase->where('simpanan.status', $status);
+        }
+        $rows = $rowsBase->limit($perPage, $offset)->get()->getResultArray();
         $sumPage = 0.0;
         foreach ($rows as $r) {
             $sumPage += (float) ($r['jumlah'] ?? 0);
@@ -627,7 +769,7 @@ class Admin extends Controller
                 'sumAll' => (float) ($sumRow['jumlah'] ?? 0),
                 'sumPage' => $sumPage,
                 'paidCount' => $paidCount,
-                'unpaidCount' => max(0, $count - $paidCount),
+                'unpaidCount' => $pendingCount,
             ],
         ]);
     }
@@ -644,21 +786,28 @@ class Admin extends Controller
             return $this->response->setStatusCode(403)->setJSON(['error' => 'Forbidden']);
         }
         $page = max(1, (int) ($this->request->getGet('page') ?? 1));
+        $status = trim((string) ($this->request->getGet('status') ?? ''));
         $perPage = 25;
         $offset = ($page - 1) * $perPage;
         $db = \Config\Database::connect();
-        $count = (int) $db->table('simpanan')->where('jenis_simpanan', 'sukarela')->countAllResults();
+        $countBase = $db->table('simpanan')->where('jenis_simpanan', 'sukarela');
+        if ($status === 'aktif' || $status === 'pending') {
+            $countBase = $countBase->where('status', $status);
+        }
+        $count = (int) $countBase->countAllResults();
         $paidCount = (int) $db->table('simpanan')->where('jenis_simpanan', 'sukarela')->where('status', 'aktif')->countAllResults();
+        $pendingCount = (int) $db->table('simpanan')->where('jenis_simpanan', 'sukarela')->where('status', 'pending')->countAllResults();
         $sumRow = $db->table('simpanan')->selectSum('jumlah')->where('jenis_simpanan', 'sukarela')->get()->getRowArray();
-        $rows = $db
+        $rowsBase = $db
             ->table('simpanan')
             ->select('simpanan.*, anggota.no_anggota, anggota.nama')
             ->join('anggota', 'anggota.id_anggota = simpanan.id_anggota', 'left')
             ->where('simpanan.jenis_simpanan', 'sukarela')
-            ->orderBy('simpanan.tanggal_simpan', 'DESC')
-            ->limit($perPage, $offset)
-            ->get()
-            ->getResultArray();
+            ->orderBy('simpanan.tanggal_simpan', 'DESC');
+        if ($status === 'aktif' || $status === 'pending') {
+            $rowsBase = $rowsBase->where('simpanan.status', $status);
+        }
+        $rows = $rowsBase->limit($perPage, $offset)->get()->getResultArray();
         $sumPage = 0.0;
         foreach ($rows as $r) {
             $sumPage += (float) ($r['jumlah'] ?? 0);
@@ -673,8 +822,104 @@ class Admin extends Controller
                 'sumAll' => (float) ($sumRow['jumlah'] ?? 0),
                 'sumPage' => $sumPage,
                 'paidCount' => $paidCount,
-                'unpaidCount' => max(0, $count - $paidCount),
+                'unpaidCount' => $pendingCount,
             ],
         ]);
+    }
+
+    public function apiSimpananData()
+    {
+        $session = session();
+        $user = $session->get('user');
+        if (!$session->get('isLoggedIn') || !$user) {
+            return $this->response->setStatusCode(401)->setJSON(['error' => 'Unauthorized']);
+        }
+        $role = $user['role'] ?? null;
+        if (!in_array($role, ['petugas', 'admin', 'anggota_petugas'], true)) {
+            return $this->response->setStatusCode(403)->setJSON(['error' => 'Forbidden']);
+        }
+        $page = max(1, (int) ($this->request->getGet('page') ?? 1));
+        $perPage = 25;
+        $offset = ($page - 1) * $perPage;
+        $db = \Config\Database::connect();
+        $base = $db->table('simpanan')->where('status !=', 'pending');
+        $totalItems = (int) $base->countAllResults();
+        $sumRow = $db->table('simpanan')->selectSum('jumlah')->where('status', 'aktif')->get()->getRowArray();
+        $rows = $db
+            ->table('simpanan')
+            ->select('simpanan.*, anggota.no_anggota, anggota.nama')
+            ->join('anggota', 'anggota.id_anggota = simpanan.id_anggota', 'left')
+            ->where('simpanan.status !=', 'pending')
+            ->orderBy('simpanan.tanggal_simpan', 'DESC')
+            ->limit($perPage, $offset)
+            ->get()
+            ->getResultArray();
+        $sumPage = 0.0;
+        foreach ($rows as $r) {
+            $sumPage += (float) ($r['jumlah'] ?? 0);
+        }
+        return $this->response->setJSON([
+            'data' => $rows,
+            'meta' => [
+                'page' => $page,
+                'perPage' => $perPage,
+                'totalItems' => $totalItems,
+                'totalPages' => (int) ceil(($totalItems ?: 0) / $perPage),
+                'sumAll' => (float) ($sumRow['jumlah'] ?? 0),
+                'sumPage' => $sumPage,
+            ],
+        ]);
+    }
+
+    public function apiSimpananSummary()
+    {
+        $session = session();
+        $user = $session->get('user');
+        if (!$session->get('isLoggedIn') || !$user) {
+            return $this->response->setStatusCode(401)->setJSON(['error' => 'Unauthorized']);
+        }
+        $role = $user['role'] ?? null;
+        if (!in_array($role, ['petugas', 'admin', 'anggota_petugas'], true)) {
+            return $this->response->setStatusCode(403)->setJSON(['error' => 'Forbidden']);
+        }
+        $db = \Config\Database::connect();
+        $sumPokok = (float) ($db->table('simpanan')->selectSum('jumlah')->where('jenis_simpanan', 'pokok')->where('status', 'aktif')->get()->getRowArray()['jumlah'] ?? 0);
+        $sumWajib = (float) ($db->table('simpanan')->selectSum('jumlah')->where('jenis_simpanan', 'wajib')->where('status', 'aktif')->get()->getRowArray()['jumlah'] ?? 0);
+        $sumSukarela = (float) ($db->table('simpanan')->selectSum('jumlah')->where('jenis_simpanan', 'sukarela')->where('status', 'aktif')->get()->getRowArray()['jumlah'] ?? 0);
+        return $this->response->setJSON([
+            'sumPokok' => $sumPokok,
+            'sumWajib' => $sumWajib,
+            'sumSukarela' => $sumSukarela,
+        ]);
+    }
+
+    public function activateSukarela()
+    {
+        $session = session();
+        $user = $session->get('user');
+        if (!$session->get('isLoggedIn') || !$user) {
+            return redirect()->to('/login');
+        }
+        $role = $user['role'] ?? null;
+        if (!in_array($role, ['petugas', 'admin', 'anggota_petugas'], true)) {
+            return redirect()->to('/login');
+        }
+        $id = (int) ($this->request->getPost('id_simpanan') ?? 0);
+        if ($id <= 0) {
+            return $this->response->setStatusCode(400)->setJSON(['error' => 'ID tidak valid']);
+        }
+        $db = \Config\Database::connect();
+        $row = $db->table('simpanan')->where('id_simpanan', $id)->get()->getRowArray();
+        if (!$row || ($row['jenis_simpanan'] ?? '') !== 'sukarela') {
+            return $this->response->setStatusCode(404)->setJSON(['error' => 'Data tidak ditemukan']);
+        }
+        if (($row['status'] ?? '') !== 'pending') {
+            return $this->response->setStatusCode(409)->setJSON(['error' => 'Status bukan pending']);
+        }
+        $ok = $db->table('simpanan')->where('id_simpanan', $id)->update(['status' => 'aktif']);
+        if ($ok) {
+            return $this->response->setJSON(['success' => true]);
+        }
+        return $this->response->setStatusCode(500)->setJSON(['error' => 'Gagal mengaktifkan']);
     }
 }

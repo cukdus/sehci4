@@ -61,7 +61,14 @@
             <div class="card shadow-sm border-0">
                 <div class="card-body">
                 <div class="mb-3 d-flex justify-content-between align-items-center">
-                  <div></div>
+                  <div class="d-flex gap-2 align-items-center">
+                    <label for="filterStatus" class="form-label mb-0">Status</label>
+                    <select id="filterStatus" class="form-select form-select-sm" style="width:auto; min-width: 160px;">
+                      <option value="">Semua</option>
+                      <option value="aktif">Aktif</option>
+                      <option value="pending">Pending</option>
+                    </select>
+                  </div>
                   <div>
                     <button class="btn btn-outline-primary btn-sm me-2" id="btnExport">Export</button>
                   </div>
@@ -104,10 +111,15 @@
     const pageInfo = document.getElementById('pageInfo');
     const prevBtn = document.getElementById('prev');
     const nextBtn = document.getElementById('next');
+    const filterStatusEl = document.getElementById('filterStatus');
     function fmt(n){return new Intl.NumberFormat('id-ID',{minimumFractionDigits:2,maximumFractionDigits:2}).format(n||0);}    
     function fmtDate(d){if(!d)return '-';var m=d.match(/^(\d{4})-(\d{2})-(\d{2})$/);if(m){return m[3]+'-'+m[2]+'-'+m[1];}try{var dt=new Date(d);var dd=('0'+dt.getDate()).slice(-2);var mm=('0'+(dt.getMonth()+1)).slice(-2);var yyyy=dt.getFullYear();return dd+'-'+mm+'-'+yyyy;}catch(e){return d;}}
+    function badgeClass(st){var v=(st||'').toLowerCase(); if(v==='aktif') return 'text-bg-primary'; if(v==='pending') return 'text-bg-warning'; return 'text-bg-secondary';}
   function load(){
-      fetch('/admin/api/simpanan/sukarela?page='+page)
+      var qs = '';
+      var st = (filterStatusEl?.value||'').trim();
+      if(st){ qs += '&status='+encodeURIComponent(st); }
+      fetch('/admin/api/simpanan/sukarela?page='+page+qs)
         .then(r=>r.json())
         .then(j=>{
           const data = j.data||[]; const meta = j.meta||{};
@@ -120,10 +132,11 @@
               <td>${fmtDate(s.tanggal_simpan)}</td>
               <td>${s.tipe_sukarela||'-'}</td>
               <td>${fmt(parseFloat(s.jumlah||0))}</td>
-              <td><span class="badge text-bg-secondary">${s.status||'-'}</span></td>
+              <td><span class="badge ${badgeClass(s.status)}">${s.status||'-'}</span></td>
               <td>${fmtDate(s.tanggal_jatuh_tempo)}</td>
               <td class="text-center">
                 <button class="btn btn-sm btn-info me-1" title="Detail"><i class="bi bi-eye"></i></button>
+                ${s.status==='pending'?`<button class="btn btn-sm btn-success" data-id="${s.id_simpanan}" title="Aktifkan" onclick="window._actSukarela(this)"><i class="bi bi-check2"></i></button>`:''}
               </td>
             `;
             rowsEl.appendChild(tr);
@@ -138,6 +151,15 @@
     }
     prevBtn.addEventListener('click',()=>{ if(page>1){ page--; load(); } });
     nextBtn.addEventListener('click',()=>{ page++; load(); });
+    if(filterStatusEl){ filterStatusEl.addEventListener('change', ()=>{ page = 1; load(); }); }
+    window._actSukarela = function(btn){
+      const id = btn.getAttribute('data-id');
+      fetch('/admin/simpanan/sukarela/activate',{
+        method:'POST',
+        headers:{'Content-Type':'application/x-www-form-urlencoded'},
+        body:'id_simpanan='+encodeURIComponent(id)
+      }).then(r=>r.json()).then(j=>{ load(); });
+    }
     load();
   })();
 </script>

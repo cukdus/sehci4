@@ -14,11 +14,11 @@
       <div class="card card-outline card-secondary">
         <div class="card-body">
           <div class="row g-4">
-            <div class="col-md-3 text-center">
+            <div class="col-md-6 text-center">
               <?php $foto = trim((string) ($anggota['foto'] ?? '')); ?>
               <img src="<?= $foto !== '' ? esc($foto) : 'https://via.placeholder.com/160x160?text=Foto' ?>" alt="Foto Anggota" class="img-thumbnail" style="max-width:300px; height:auto;" />
             </div>
-            <div class="col-md-9">
+            <div class="col-md-6">
               <div class="d-flex justify-content-between align-items-start flex-wrap">
                 <div>
                   <h3 class="mb-4"><?= esc($anggota['nama'] ?? '') ?></h3>
@@ -45,7 +45,9 @@
               <div class="mb-2"><strong>No KTP:</strong> <?= esc($anggota['no_ktp'] ?? '') ?></div>
               <div class="mb-2"><strong>No KK:</strong> <?= esc($anggota['no_kk'] ?? '') ?></div>
               <div class="mb-2"><strong>No NPWP:</strong> <?= esc($anggota['no_npwp'] ?? '') ?></div>
-              <div class="mb-2"><strong>Basic Skill:</strong> <?= esc($anggota['basic_skill'] ?? '') ?></div>
+              <div class="mb-2"><strong>Basic Skill:</strong> <?php $bsRaw = $anggota['basic_skill'] ?? '';
+$bsArr = is_string($bsRaw) ? json_decode($bsRaw, true) : (is_array($bsRaw) ? $bsRaw : []);
+echo is_array($bsArr) && !empty($bsArr) ? implode(', ', array_map('esc', $bsArr)) : esc($bsRaw ?: ''); ?></div>
               <div class="mb-2"><strong>Pengalaman Kerja:</strong> <?= esc($anggota['pengalaman_kerja'] ?? '') ?></div>
               <div class="mb-2"><strong>Pengalaman Organisasi:</strong> <?= esc($anggota['pengalaman_organisasi'] ?? '') ?></div>
             </div>

@@ -127,3 +127,4 @@ _modules/*
 node_modules/
 tests/
 env
+kopseh.sql

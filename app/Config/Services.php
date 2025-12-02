@@ -29,4 +29,11 @@ class Services extends BaseService
      *     return new \CodeIgniter\Example();
      * }
      */
+    public static function waha(bool $getShared = true)
+    {
+        if ($getShared) {
+            return static::getSharedInstance('waha');
+        }
+        return new \App\Libraries\WahaClient();
+    }
 }

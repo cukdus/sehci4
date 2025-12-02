@@ -70,12 +70,6 @@
                       <p>Simpanan Sukarela</p>
                     </a>
                   </li>
-                  <li class="nav-item">
-                    <a href="/anggota/simpanan/hibah" class="nav-link">
-                      <i class="nav-icon bi bi-circle"></i>
-                      <p>Hibah</p>
-                    </a>
-                  </li>
                 </ul>
               </li>
               <li class="nav-header">Transaksi</li>
@@ -95,6 +89,12 @@
                 <a href="/anggota/angsuran" class="nav-link">
                   <i class="nav-icon bi bi-grip-horizontal"></i>
                   <p>Angsuran</p>
+                </a>
+              </li>
+              <li class="nav-item">
+                <a href="/anggota/simpanan/hibah" class="nav-link">
+                  <i class="nav-icon bi bi-circle"></i>
+                  <p>Hibah</p>
                 </a>
               </li>
               <li class="nav-header">Settings</li>

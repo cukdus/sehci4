@@ -1,15 +1,18 @@
 <main class="app-main">
   <div class="container-fluid py-3">
     <div class="d-flex justify-content-between align-items-center">
-      <h5 class="mb-0">Daftar Simpanan Wajib</h5>
-        <a href="https://eqiyu.id/admin/setting/users/create" class="btn btn-sm btn-primary">
-          <i class="bi bi-plus-lg"></i> Tambah Simpanan
-        </a>
+      <h3 class="mb-0">Daftar Simpanan Wajib</h3>
     </div>
   </div>
   <div class="container-fluid">
     <div class="card card-primary card-outline">
       <div class="card-body">
+        <?php if (session()->getFlashdata('success')): ?>
+          <div class="alert alert-success" role="alert"><?= session()->getFlashdata('success') ?></div>
+        <?php endif; ?>
+        <?php if (session()->getFlashdata('error')): ?>
+          <div class="alert alert-danger" role="alert"><?= session()->getFlashdata('error') ?></div>
+        <?php endif; ?>
         <div class="table-responsive">
           <table class="table table-striped table-hover">
             <thead>
@@ -50,8 +53,9 @@
     const pageInfo = document.getElementById('pageInfo');
     const prevBtn = document.getElementById('prev');
     const nextBtn = document.getElementById('next');
-    function fmt(n){return new Intl.NumberFormat('id-ID',{minimumFractionDigits:2,maximumFractionDigits:2}).format(n||0);}    
+    function fmt(n){var v = Number(n||0); var t = new Intl.NumberFormat('id-ID',{maximumFractionDigits:0}).format(v); return 'Rp ' + t + ',-';}
     function fmtDate(d){if(!d)return '-';var m=d.match(/^(\d{4})-(\d{2})-(\d{2})$/);if(m){return m[3]+'-'+m[2]+'-'+m[1];}try{var dt=new Date(d);var dd=('0'+dt.getDate()).slice(-2);var mm=('0'+(dt.getMonth()+1)).slice(-2);var yyyy=dt.getFullYear();return dd+'-'+mm+'-'+yyyy;}catch(e){return d;}}
+    function badgeClass(st){var v=(st||'').toLowerCase(); if(v==='aktif') return 'text-bg-primary'; if(v==='pending') return 'text-bg-warning'; return 'text-bg-secondary';}
     function load(){
       fetch('/anggota/api/simpanan/wajib?page='+page)
         .then(r=>r.json())
@@ -65,7 +69,7 @@
               <td>${start+i+1}</td>
               <td>${fmtDate(s.tanggal_simpan)}</td>
               <td>${fmt(parseFloat(s.jumlah||0))}</td>
-              <td><span class="badge text-bg-secondary">${s.status||'-'}</span></td>
+              <td><span class="badge ${badgeClass(s.status)}">${s.status||'-'}</span></td>
             `;
             rowsEl.appendChild(tr);
           });

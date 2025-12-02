@@ -45,6 +45,12 @@
               </li>
               <li class="nav-header">Simpanan</li>
               <li class="nav-item">
+                <a href="/admin/simpanan/data" class="nav-link">
+                  <i class="nav-icon bi bi-download"></i>
+                  <p>Data Simpanan</p>
+                </a>
+              </li>
+              <li class="nav-item">
                 <a href="#" class="nav-link">
                   <i class="nav-icon bi bi-ui-checks-grid"></i>
                   <p>

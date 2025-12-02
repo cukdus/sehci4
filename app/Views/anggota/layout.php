@@ -57,15 +57,18 @@
     ></script>
     <!-- sortablejs -->
     <script>
-      new Sortable(document.querySelector('.connectedSortable'), {
-        group: 'shared',
-        handle: '.card-header',
-      });
-
-      const cardHeaders = document.querySelectorAll('.connectedSortable .card-header');
-      cardHeaders.forEach((cardHeader) => {
-        cardHeader.style.cursor = 'move';
-      });
+      (function(){
+        const el = document.querySelector('.connectedSortable');
+        if (el && typeof Sortable !== 'undefined') {
+          try {
+            new Sortable(el, { group: 'shared', handle: '.card-header' });
+            const cardHeaders = document.querySelectorAll('.connectedSortable .card-header');
+            cardHeaders.forEach((cardHeader) => { cardHeader.style.cursor = 'move'; });
+          } catch (e) {
+            console.error('Sortable init failed:', e);
+          }
+        }
+      })();
     </script>
     <!-- apexcharts -->
     <script

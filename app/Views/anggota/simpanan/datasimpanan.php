@@ -21,7 +21,7 @@
               href="#"
               class="small-box-footer link-light link-underline-opacity-0 link-underline-opacity-50-hover"
             >
-              More info <i class="bi bi-link-45deg"></i>
+              Simpanan Pokok <i class="bi bi-link-45deg"></i>
             </a>
           </div>
         </div>
@@ -33,10 +33,10 @@
             </div>
             <i class="bi bi-cash-coin small-box-icon" aria-hidden="true"></i>
             <a
-              href="#"
+              href="/anggota/simpanan/wajib"
               class="small-box-footer link-light link-underline-opacity-0 link-underline-opacity-50-hover"
             >
-              More info <i class="bi bi-link-45deg"></i>
+              Lihat Detail <i class="bi bi-link-45deg"></i>
             </a>
           </div>
         </div>
@@ -48,10 +48,10 @@
             </div>
             <i class="bi bi-coin small-box-icon" aria-hidden="true"></i>
             <a
-              href="#"
+              href="/anggota/simpanan/sukarela"
               class="small-box-footer link-dark link-underline-opacity-0 link-underline-opacity-50-hover"
             >
-              More info <i class="bi bi-link-45deg"></i>
+              Lihat Detail <i class="bi bi-link-45deg"></i>
             </a>
           </div>
         </div>
@@ -113,20 +113,22 @@
       const map = {pokok:'Simpanan Pokok', wajib:'Simpanan Wajib', sukarela:'Simpanan Sukarela'};
       return map[j]||j;
     }
+    function badgeClass(st){var v=(st||'').toLowerCase(); if(v==='aktif') return 'text-bg-primary'; if(v==='pending') return 'text-bg-warning'; return 'text-bg-secondary';}
     function load(){
       fetch('/anggota/api/simpanan/data?page='+page)
         .then(r=>r.json())
         .then(j=>{
           const data = j.data||[]; const meta = j.meta||{};
           rowsEl.innerHTML = '';
-          data.forEach((s)=>{
+          const start = (meta.page-1)*perPage;
+          data.forEach((s,i)=>{
             const tr = document.createElement('tr');
             tr.innerHTML = `
-              <td>${s.id_simpanan||'-'}</td>
+              <td>${start+i+1}</td>
               <td>${fmtDate(s.tanggal_simpan)}</td>
               <td>${labelJenis(s.jenis_simpanan)}</td>
               <td>Rp ${fmt(parseFloat(s.jumlah||0))}</td>
-              <td><span class="badge text-bg-secondary">${s.status||'-'}</span></td>
+              <td><span class="badge ${badgeClass(s.status)}">${s.status||'-'}</span></td>
             `;
             rowsEl.appendChild(tr);
           });
