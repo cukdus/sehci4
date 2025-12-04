@@ -29,7 +29,11 @@
         <div class="col-lg-8">
           <div class="card p-4 shadow-sm">
             <h3 class="mb-3">Formulir Pendaftaran Anggota</h3>
-            <form action="forms/register.php" method="post" novalidate="">
+            <?= session()->has('message') ? '<div class="alert alert-success">' . esc(session('message')) . '</div>' : '' ?>
+            <?php if (session()->has('error')): ?>
+              <div class="alert alert-danger"><?= esc(session('error')) ?></div>
+            <?php endif; ?>
+            <form action="/register" method="post" novalidate="">
               <div class="row g-3">
                 <div class="col-md-6">
                   <label for="fullName" class="form-label">Nama Lengkap</label>
@@ -51,6 +55,7 @@
                     id="birthDate"
                     name="birthDate"
                     class="form-control"
+                    max="<?= date('Y-m-d', strtotime('-18 years')) ?>"
                     required=""
                   />
                 </div>

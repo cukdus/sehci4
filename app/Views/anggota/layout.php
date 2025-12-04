@@ -10,6 +10,34 @@
   <?php echo $content; ?>
   <?php echo view('anggota/partials/footer'); ?>
 </div>
+<?php if (!empty($showProfileIncompleteModal)): ?>
+<div class="modal fade" id="profileIncompleteModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Lengkapi Profil</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p>Data profil anda belum lengkap. Mohon lengkapi untuk pengalaman yang lebih baik.</p>
+        <?php if (!empty($profileMissingFields)): ?>
+          <div class="small text-muted">Kurang: <?= esc(implode(', ', $profileMissingFields)) ?></div>
+        <?php endif; ?>
+      </div>
+      <div class="modal-footer">
+        <a href="/anggota/profil/edit" class="btn btn-primary">Lengkapi Profil</a>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Lain kali</button>
+      </div>
+    </div>
+  </div>
+  </div>
+<script>
+  document.addEventListener('DOMContentLoaded', function(){
+    var el = document.getElementById('profileIncompleteModal');
+    if (el && typeof bootstrap !== 'undefined') { new bootstrap.Modal(el).show(); }
+  });
+ </script>
+<?php endif; ?>
 <script
   src="https://cdn.jsdelivr.net/npm/admin-lte@4.0.0-rc3/dist/js/adminlte.min.js"
   crossorigin="anonymous"

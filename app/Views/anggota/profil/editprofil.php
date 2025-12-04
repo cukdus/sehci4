@@ -25,7 +25,7 @@
             <div class="row g-3">
               <div class="col-md-4">
                 <label class="form-label">No. Anggota</label>
-                <input type="text" name="no_anggota" class="form-control" value="<?= esc($anggota['no_anggota']) ?>" disabled />
+                <input type="text" name="no_anggota" class="form-control" value="<?= esc($anggota['no_anggota']) ?>" placeholder="Akan terisi otomatis" disabled />
               </div>
               <div class="col-md-8">
                 <label class="form-label">Nama</label>
@@ -72,11 +72,11 @@
                 <?php $rawSkills = (string) ($anggota['basic_skill'] ?? '');
                 $existingSkills = [];
                 if ($rawSkills !== '') {
-                    if ($rawSkills[0] === '[') {
-                        $existingSkills = json_decode($rawSkills, true) ?: [];
-                    } else {
-                        $existingSkills = array_map('trim', explode(',', $rawSkills));
-                    }
+                  if ($rawSkills[0] === '[') {
+                    $existingSkills = json_decode($rawSkills, true) ?: [];
+                  } else {
+                    $existingSkills = array_map('trim', explode(',', $rawSkills));
+                  }
                 } ?>
                 <div class="row g-2">
                   <div class="col-md-3">

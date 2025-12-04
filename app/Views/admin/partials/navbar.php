@@ -110,7 +110,7 @@
                 end::Menu Body-->
                 <!--begin::Menu Footer-->
                 <li class="user-footer">
-                  <a href="logout" class="btn btn-danger btn-flat float-end">Sign out</a>
+                  <a href="/logout" class="btn btn-danger btn-flat float-end">Keluar</a>
                 </li>
                 <!--end::Menu Footer-->
               </ul>

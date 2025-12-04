@@ -29,19 +29,19 @@
 
         <form action="/login" method="post">
           <div class="mb-3">
-            <label for="username" class="form-label">Username</label>
+            <label for="username" class="form-label">Nomer HP</label>
             <input type="text" id="username" name="username" class="form-control form-control-lg" value="<?= old('username') ?>" required>
           </div>
           <div class="mb-3">
             <label for="password" class="form-label">Password</label>
             <input type="password" id="password" name="password" class="form-control form-control-lg" required>
           </div>
-          <button type="submit" class="btn btn-primary btn-lg w-100">Sign In</button>
+          <button type="submit" class="btn btn-primary btn-lg w-100">Masuk Boss</button>
         </form>
 
         <div class="text-center mt-4">
-          <span class="text-muted">Not a member?</span>
-          <a href="/register" class="text-decoration-none">Sign Up</a>
+          <span class="text-muted">Belum jadi anggota?</span>
+          <a href="/register" class="text-decoration-none">Daftar Disini</a>
         </div>
       </div>
     </div>

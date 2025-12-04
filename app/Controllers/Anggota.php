@@ -17,10 +17,35 @@ class Anggota extends Controller
         if (!in_array($role, ['anggota', 'anggota_petugas'], true)) {
             return redirect()->to('/login');
         }
+        $showModal = false;
+        $missing = [];
+        $idAnggota = (int) ($user['id_anggota'] ?? 0);
+        if ($idAnggota > 0 && $session->getFlashdata('justLoggedIn')) {
+            $db = \Config\Database::connect();
+            $anggota = $db->table('anggota')->where('id_anggota', $idAnggota)->get()->getRowArray();
+            if ($anggota) {
+                $required = ['jenis_kelamin', 'tempat_lahir', 'tanggal_lahir', 'alamat', 'no_telepon'];
+                foreach ($required as $f) {
+                    $v = trim((string) ($anggota[$f] ?? ''));
+                    if ($v === '') {
+                        $missing[] = $f;
+                    }
+                }
+                $foto = trim((string) ($anggota['foto'] ?? ''));
+                if ($foto === '') {
+                    $missing[] = 'foto';
+                }
+                if (!empty($missing)) {
+                    $showModal = true;
+                }
+            }
+        }
         $content = view('anggota/Dashboard');
         return view('anggota/layout', [
             'content' => $content,
             'title' => 'Dashboard',
+            'showProfileIncompleteModal' => $showModal,
+            'profileMissingFields' => $missing,
         ]);
     }
 

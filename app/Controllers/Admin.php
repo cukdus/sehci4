@@ -341,6 +341,70 @@ class Admin extends Controller
         ]);
     }
 
+    public function settingWaha()
+    {
+        $session = session();
+        $user = $session->get('user');
+        if (!$session->get('isLoggedIn') || !$user) {
+            return redirect()->to('/login');
+        }
+        $role = $user['role'] ?? null;
+        if (!in_array($role, ['admin', 'petugas', 'anggota_petugas'], true)) {
+            return redirect()->to('/login');
+        }
+        $content = view('admin/setting/waha');
+        return view('admin/layout', [
+            'content' => $content,
+            'title' => 'Setting WAHA',
+        ]);
+    }
+
+    public function apiSettingWaha()
+    {
+        $session = session();
+        $user = $session->get('user');
+        if (!$session->get('isLoggedIn') || !$user) {
+            return $this->response->setStatusCode(401)->setJSON(['error' => 'Unauthorized']);
+        }
+        $role = $user['role'] ?? null;
+        if (!in_array($role, ['admin', 'petugas', 'anggota_petugas'], true)) {
+            return $this->response->setStatusCode(403)->setJSON(['error' => 'Forbidden']);
+        }
+        $db = \Config\Database::connect();
+        $tables = $db->listTables();
+        if (!in_array('waha_templates', $tables, true)) {
+            $db->query('CREATE TABLE IF NOT EXISTS waha_templates (
+                id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                slug VARCHAR(50) NOT NULL UNIQUE,
+                content TEXT NULL,
+                updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+        }
+        if (strtolower($this->request->getMethod()) === 'post') {
+            $items = [
+                ['slug' => 'register', 'content' => (string) $this->request->getPost('register')],
+                ['slug' => 'wajib', 'content' => (string) $this->request->getPost('wajib')],
+                ['slug' => 'sukarela', 'content' => (string) $this->request->getPost('sukarela')],
+                ['slug' => 'forgot', 'content' => (string) $this->request->getPost('forgot')],
+            ];
+            foreach ($items as $it) {
+                $exists = $db->table('waha_templates')->where('slug', $it['slug'])->get()->getRowArray();
+                if ($exists) {
+                    $db->table('waha_templates')->where('slug', $it['slug'])->update(['content' => $it['content']]);
+                } else {
+                    $db->table('waha_templates')->insert($it);
+                }
+            }
+            return $this->response->setJSON(['ok' => true]);
+        }
+        $rows = $db->table('waha_templates')->get()->getResultArray();
+        $map = ['register' => '', 'wajib' => '', 'sukarela' => '', 'forgot' => ''];
+        foreach ($rows as $r) {
+            $map[$r['slug']] = (string) ($r['content'] ?? '');
+        }
+        return $this->response->setJSON($map);
+    }
+
     public function apiSimpananAnggota(int $id)
     {
         $session = session();
@@ -560,6 +624,28 @@ class Admin extends Controller
 
         $db = \Config\Database::connect();
         try {
+            $prev = $db->table('anggota')->where('id_anggota', $id)->get()->getRowArray();
+            $newStatus = trim((string) ($data['status'] ?? ''));
+            $currNo = (string) ($prev['no_anggota'] ?? '');
+            $postNo = trim((string) ($data['no_anggota'] ?? ''));
+            if ($newStatus === 'aktif' && $currNo === '' && $postNo === '') {
+                $gen = '';
+                for ($i = 0; $i < 5; $i++) {
+                    $candidate = 'A' . date('ymd') . strtoupper(bin2hex(random_bytes(3)));
+                    $exists = (int) $db->table('anggota')->where('no_anggota', $candidate)->countAllResults();
+                    if ($exists === 0) {
+                        $gen = $candidate;
+                        break;
+                    }
+                }
+                if ($gen === '') {
+                    $gen = 'A' . time();
+                }
+                $data['no_anggota'] = $gen;
+                if (empty($prev['tanggal_gabung'])) {
+                    $data['tanggal_gabung'] = date('Y-m-d');
+                }
+            }
             $db->table('anggota')->where('id_anggota', $id)->update($data);
             if (!empty($data['foto'])) {
                 $db->table('users')->where('id_anggota', $id)->update(['foto' => $data['foto']]);

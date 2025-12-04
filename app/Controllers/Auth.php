@@ -54,6 +54,7 @@ class Auth extends Controller
                 'id_petugas' => $user['id_petugas'] ?? null,
             ],
         ]);
+        $session->setFlashdata('justLoggedIn', true);
 
         $role = $user['role'];
         if ($role === 'anggota') {
@@ -70,4 +71,3 @@ class Auth extends Controller
         return redirect()->to('/login');
     }
 }
-

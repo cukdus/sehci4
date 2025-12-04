@@ -14,7 +14,12 @@ class WahaClient
         $this->baseUrl = rtrim((string) (env('WAHA_BASE_URL') ?? ''), '/');
         $this->token = (string) (env('WAHA_TOKEN') ?? '');
         $this->session = env('WAHA_SESSION') ?? null;
-        $this->client = \Config\Services::curlrequest();
+        $skip = (bool) (env('WAHA_SKIP_SSL_VERIFY') ?? false);
+        $opts = [];
+        if ($skip) {
+            $opts['curl'] = [CURLOPT_SSL_VERIFYPEER => false, CURLOPT_SSL_VERIFYHOST => 0];
+        }
+        $this->client = \Config\Services::curlrequest($opts);
     }
 
     public function sendText(string $phone, string $text): array
@@ -25,6 +30,7 @@ class WahaClient
         ];
         if ($this->token !== '') {
             $headers['Authorization'] = 'Bearer ' . $this->token;
+            $headers['x-api-key'] = $this->token;
         }
         $payload = [
             'phone' => $phone,
@@ -54,4 +60,3 @@ class WahaClient
         }
     }
 }
-
