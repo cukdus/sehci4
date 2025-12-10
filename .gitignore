@@ -128,3 +128,5 @@ node_modules/
 tests/
 env
 kopseh.sql
+config/docker.compose.yml
+docker-compose.yml
