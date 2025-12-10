@@ -82,7 +82,11 @@
         </td>
         <td>${a.no_telepon || '-'}</td>
         <td>${a.email || '-'}</td>
-        <td><span class="badge text-bg-secondary">${a.status || ''}</span></td>
+        <td>
+          <div class="form-check form-switch d-inline-block">
+            <input class="form-check-input" type="checkbox" role="switch" ${a.status==='aktif'?'checked':''} data-id="${a.id_anggota}" onchange="window._toggleAnggota(this)" />
+          </div>
+        </td>
         <td>${a.jenis_anggota || ''}</td>
         <td>
           <div class="btn-group" role="group">
@@ -160,6 +164,18 @@
     });
   });
 
-  
+  window._toggleAnggota = function(sw){
+    const id = sw.getAttribute('data-id');
+    const status = sw.checked ? 'aktif' : 'nonaktif';
+    const ok = confirm('Ubah status anggota menjadi '+status+'?');
+    if(!ok){ sw.checked = !sw.checked; return; }
+    fetch('/admin/anggota/toggle',{
+      method:'POST',
+      headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body:'id_anggota='+encodeURIComponent(id)+'&status='+encodeURIComponent(status)
+    }).then(r=>r.json()).then(j=>{
+      return fetch('/admin/anggota/data').then(r=>r.json()).then(j2=>{ dataSrc = j2.data||[]; filtered=[...dataSrc]; applySort(); renderTable(); });
+    });
+  }
 </script>
 

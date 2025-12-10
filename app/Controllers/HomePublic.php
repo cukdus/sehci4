@@ -47,8 +47,8 @@ class HomePublic extends Controller
             'agree' => 'required',
         ];
         if (!$this->validate($rules)) {
-            $session->setFlashdata('error', 'Lengkapi formulir pendaftaran dengan benar');
-            return redirect()->back()->withInput();
+            $session->setFlashdata('error', 'Data wajib diisi: Nama, Tanggal Lahir, Email, No. Telepon');
+            return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
         }
         $nama = trim((string) $request->getPost('fullName'));
         $tgl = trim((string) $request->getPost('birthDate'));
@@ -293,12 +293,12 @@ class HomePublic extends Controller
         $db = \Config\Database::connect();
         $row = $db->table('user_activation')->where('token', $token)->get()->getRowArray();
         if (!$row) {
-            throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
+            return view('Auth/activate', ['invalid' => true]);
         }
         $used = (string) ($row['used_at'] ?? '');
         $exp = (string) ($row['expires_at'] ?? '');
         if ($used !== '' || ($exp !== '' && strtotime($exp) < time())) {
-            throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
+            return view('Auth/activate', ['invalid' => true]);
         }
         return view('Auth/activate', ['token' => $token]);
     }
@@ -307,6 +307,16 @@ class HomePublic extends Controller
     {
         $request = $this->request;
         $session = session();
+        $db = \Config\Database::connect();
+        $row = $db->table('user_activation')->where('token', $token)->get()->getRowArray();
+        if (!$row) {
+            return redirect()->to('/activate/' . $token);
+        }
+        $used = (string) ($row['used_at'] ?? '');
+        $exp = (string) ($row['expires_at'] ?? '');
+        if ($used !== '' || ($exp !== '' && strtotime($exp) < time())) {
+            return redirect()->to('/activate/' . $token);
+        }
         $rules = [
             'password' => 'required|min_length[6]',
             'confirm' => 'required|matches[password]',
@@ -314,16 +324,6 @@ class HomePublic extends Controller
         if (!$this->validate($rules)) {
             $session->setFlashdata('error', 'Password tidak valid');
             return redirect()->back()->withInput();
-        }
-        $db = \Config\Database::connect();
-        $row = $db->table('user_activation')->where('token', $token)->get()->getRowArray();
-        if (!$row) {
-            throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
-        }
-        $used = (string) ($row['used_at'] ?? '');
-        $exp = (string) ($row['expires_at'] ?? '');
-        if ($used !== '' || ($exp !== '' && strtotime($exp) < time())) {
-            throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
         }
         $idUser = (int) ($row['id_user'] ?? 0);
         $pwd = (string) $request->getPost('password');
@@ -339,5 +339,265 @@ class HomePublic extends Controller
             $session->setFlashdata('error', 'Gagal menyimpan password: ' . $e->getMessage());
             return redirect()->back()->withInput();
         }
+    }
+
+    public function activateResend()
+    {
+        $request = $this->request;
+        $session = session();
+        $username = trim((string) ($request->getPost('username') ?? ''));
+        if ($username === '') {
+            $session->setFlashdata('error', 'Masukkan username/no telepon/email untuk kirim ulang link.');
+            $baseTo = rtrim(config('App')->baseURL, '/');
+            return redirect()->to($baseTo . '/resend', 303, 'auto')->withInput();
+        }
+        $db = \Config\Database::connect();
+        $digits = preg_replace('#\D+#', '', $username);
+        $user = $db->table('users')->where('username', $username)->get()->getRowArray();
+        if (!$user && $digits !== '') {
+            $user = $db->table('users')->where('username', $digits)->get()->getRowArray();
+        }
+        if (!$user) {
+            $queryAng = $db->table('anggota')->groupStart()->where('email', $username)->orWhere('no_telepon', $username)->groupEnd();
+            $altLocal = '';
+            if ($digits !== '' && str_starts_with($digits, '62')) {
+                $altLocal = '0' . substr($digits, 2);
+            }
+            if ($altLocal !== '') {
+                $queryAng = $queryAng->orWhere('no_telepon', $altLocal);
+            }
+            if ($digits !== '') {
+                $queryAng = $queryAng->orWhere('no_telepon', $digits);
+            }
+            $ang = $queryAng->get()->getRowArray();
+            if ($ang) {
+                $user = $db->table('users')->where('id_anggota', (int) ($ang['id_anggota'] ?? 0))->orderBy('id_user', 'DESC')->limit(1)->get()->getRowArray();
+            }
+        }
+        if (!$user) {
+            $session->setFlashdata('error', 'Akun tidak ditemukan.');
+            $baseTo = rtrim(config('App')->baseURL, '/');
+            return redirect()->to($baseTo . '/resend', 303, 'auto')->withInput();
+        }
+        if ((string) ($user['status'] ?? '') === 'aktif' || !empty($user['password_hash'])) {
+            $session->setFlashdata('message', 'Akun sudah aktif. Silakan login.');
+            return redirect()->to('/login');
+        }
+        $idUser = (int) ($user['id_user'] ?? 0);
+        if ($idUser <= 0) {
+            $session->setFlashdata('error', 'Akun tidak valid.');
+            $baseTo = rtrim(config('App')->baseURL, '/');
+            return redirect()->to($baseTo . '/resend', 303, 'auto')->withInput();
+        }
+        try {
+            $active = $db->query('SELECT id, token, expires_at FROM user_activation WHERE id_user = ? AND used_at IS NULL AND (expires_at IS NULL OR expires_at > NOW()) ORDER BY id DESC LIMIT 1', [$idUser])->getRowArray();
+        } catch (\Throwable $e) {
+            $active = null;
+        }
+        if ($active) {
+            $session->setFlashdata('message', 'Link sebelumnya masih bisa dipakai');
+            $baseTo = rtrim(config('App')->baseURL, '/');
+            return redirect()->to($baseTo . '/resend', 303, 'auto');
+        }
+        $token = bin2hex(random_bytes(24));
+        $expire = date('Y-m-d H:i:s', time() + 3600);
+        try {
+            $db->query('UPDATE user_activation SET expires_at = ? WHERE id_user = ? AND used_at IS NULL', [date('Y-m-d H:i:s'), $idUser]);
+            $db->table('user_activation')->insert([
+                'id_user' => $idUser,
+                'token' => $token,
+                'expires_at' => $expire,
+            ]);
+        } catch (\Throwable $e) {
+            $session->setFlashdata('error', 'Gagal membuat link aktivasi: ' . $e->getMessage());
+            return redirect()->back()->withInput();
+        }
+        $base = rtrim(config('App')->baseURL, '/');
+        $link = $base . '/activate/' . $token;
+        $nama = '';
+        $noTelp = '';
+        try {
+            $idAnggota = (int) ($user['id_anggota'] ?? 0);
+            if ($idAnggota > 0) {
+                $ang = $db->table('anggota')->where('id_anggota', $idAnggota)->get()->getRowArray();
+                if ($ang) {
+                    $nama = trim((string) ($ang['nama'] ?? ''));
+                    $noTelp = trim((string) ($ang['no_telepon'] ?? ''));
+                }
+            }
+        } catch (\Throwable $e) {
+        }
+        $tplRow = $db->table('waha_templates')->where('slug', 'register')->get()->getRowArray();
+        $tpl = (string) ($tplRow['content'] ?? '');
+        if ($tpl === '') {
+            $tpl = 'Halo {{nama}}, silakan aktivasi akun: {{link}}';
+        }
+        $msg = str_replace(['{{nama}}', '{{no_anggota}}', '{{link}}'], [$nama, '', $link], $tpl);
+        try {
+            $skip = (bool) (env('WAHA_SKIP_SSL_VERIFY') ?? false);
+            $opts = [
+                'timeout' => 10,
+                'http_errors' => false,
+                'allow_redirects' => ['max' => 5, 'strict' => false, 'referer' => false],
+            ];
+            if ($skip) {
+                $opts['verify'] = false;
+            }
+            $client = \Config\Services::curlrequest($opts);
+            $envUrl = (string) (env('WAHA_SEND_URL') ?: '');
+            $baseUrl = (string) (env('WAHA_BASE_URL') ?: '');
+            $sendUrl = $envUrl !== '' ? $envUrl : (rtrim($baseUrl, '/') !== '' ? rtrim($baseUrl, '/') . '/api/sendText' : '');
+            $tokenW = (string) (env('WAHA_TOKEN') ?: '');
+            $sessionId = (string) (env('WAHA_SESSION') ?: 'default');
+            $phoneNum = preg_replace('#\D+#', '', $noTelp !== '' ? $noTelp : (string) ($user['username'] ?? ''));
+            if ($phoneNum !== '' && str_starts_with($phoneNum, '0')) {
+                $phoneNum = '62' . substr($phoneNum, 1);
+            }
+            if ($phoneNum !== '' && ($sendUrl !== '' || $baseUrl !== '')) {
+                $headers = ['Content-Type' => 'application/json'];
+                if ($tokenW !== '') {
+                    $headers['x-api-key'] = $tokenW;
+                    $headers['Authorization'] = 'Bearer ' . $tokenW;
+                }
+                $targets = [];
+                if ($sendUrl !== '') {
+                    $targets[] = $sendUrl;
+                } else {
+                    $b = rtrim($baseUrl, '/');
+                    if ($b !== '') {
+                        $targets[] = $b . '/api/sendText';
+                        $targets[] = $b . '/messages';
+                    }
+                }
+                $ok = false;
+                foreach ($targets as $turl) {
+                    $p1 = ['phone' => $phoneNum, 'chatId' => $phoneNum . '@c.us', 'text' => $msg, 'session' => $sessionId];
+                    $r1 = $client->post($turl, ['headers' => $headers, 'json' => $p1]);
+                    $c1 = $r1->getStatusCode();
+                    if ($c1 >= 200 && $c1 < 300) {
+                        $ok = true;
+                        \log_message('info', 'Resend WA success: status=' . $c1 . ' url=' . $turl);
+                        break;
+                    }
+                    \log_message('error', 'Resend WA failed A: status=' . $c1 . ' url=' . $turl . ' body=' . (string) $r1->getBody());
+                    $p2 = ['to' => $phoneNum, 'chatId' => $phoneNum . '@c.us', 'text' => $msg, 'session' => $sessionId];
+                    $r2 = $client->post($turl, ['headers' => $headers, 'json' => $p2]);
+                    $c2 = $r2->getStatusCode();
+                    if ($c2 >= 200 && $c2 < 300) {
+                        $ok = true;
+                        \log_message('info', 'Resend WA success: status=' . $c2 . ' url=' . $turl);
+                        break;
+                    }
+                    \log_message('error', 'Resend WA failed B: status=' . $c2 . ' url=' . $turl . ' body=' . (string) $r2->getBody());
+                    $p3 = ['phone' => $phoneNum, 'chatId' => $phoneNum . '@c.us', 'message' => $msg, 'session' => $sessionId];
+                    $r3 = $client->post($turl, ['headers' => $headers, 'json' => $p3]);
+                    $c3 = $r3->getStatusCode();
+                    if ($c3 >= 200 && $c3 < 300) {
+                        $ok = true;
+                        \log_message('info', 'Resend WA success: status=' . $c3 . ' url=' . $turl);
+                        break;
+                    }
+                    \log_message('error', 'Resend WA failed C: status=' . $c3 . ' url=' . $turl . ' body=' . (string) $r3->getBody());
+                    $p4 = ['phone' => $phoneNum, 'chatId' => $phoneNum . '@c.us', 'message' => $msg, 'session' => $sessionId];
+                    $r4 = $client->post($turl, ['headers' => ['Content-Type' => 'application/x-www-form-urlencoded'] + $headers, 'form_params' => $p4]);
+                    $c4 = $r4->getStatusCode();
+                    if ($c4 >= 200 && $c4 < 300) {
+                        $ok = true;
+                        \log_message('info', 'Resend WA success: status=' . $c4 . ' url=' . $turl);
+                        break;
+                    }
+                    \log_message('error', 'Resend WA failed D: status=' . $c4 . ' url=' . $turl . ' body=' . (string) $r4->getBody());
+                    if (str_ends_with($turl, '/messages')) {
+                        $p5 = ['chatId' => $phoneNum . '@c.us', 'body' => $msg, 'session' => $sessionId];
+                        $r5 = $client->post($turl, ['headers' => $headers, 'json' => $p5]);
+                        $c5 = $r5->getStatusCode();
+                        if ($c5 >= 200 && $c5 < 300) {
+                            $ok = true;
+                            \log_message('info', 'Resend WA success: status=' . $c5 . ' url=' . $turl);
+                            break;
+                        }
+                        \log_message('error', 'Resend WA failed E: status=' . $c5 . ' url=' . $turl . ' body=' . (string) $r5->getBody());
+                    }
+                }
+                if (!$ok) {
+                    \log_message('error', 'Resend WA final failed for ' . $phoneNum);
+                }
+            } else {
+                \log_message('error', 'Resend WA skipped: URL or phone invalid (phone=' . ($phoneNum ?: 'NULL') . ', sendUrl=' . ($sendUrl ?: 'NULL') . ', baseUrl=' . ($baseUrl ?: 'NULL') . ')');
+            }
+        } catch (\Throwable $e) {
+            \log_message('error', 'Resend WA exception: ' . $e->getMessage());
+            try {
+                $opts2 = ['timeout' => 10, 'http_errors' => false, 'allow_redirects' => ['max' => 5, 'strict' => false, 'referer' => false], 'verify' => false];
+                $client2 = \Config\Services::curlrequest($opts2);
+                $headers2 = ['Content-Type' => 'application/json'];
+                $tokenW2 = (string) (env('WAHA_TOKEN') ?: '');
+                if ($tokenW2 !== '') {
+                    $headers2['x-api-key'] = $tokenW2;
+                    $headers2['Authorization'] = 'Bearer ' . $tokenW2;
+                }
+                $envUrl2 = (string) (env('WAHA_SEND_URL') ?: '');
+                $baseUrl2 = (string) (env('WAHA_BASE_URL') ?: '');
+                $s0 = $envUrl2 !== '' ? $envUrl2 : (rtrim($baseUrl2, '/') !== '' ? rtrim($baseUrl2, '/') . '/api/sendText' : '');
+                $targets2 = [];
+                if ($s0 !== '') {
+                    $targets2[] = preg_replace('#^https://#', 'http://', $s0);
+                    $targets2[] = preg_replace('#^https://#', 'http://', rtrim($baseUrl2, '/') . '/messages');
+                }
+                $ok2 = false;
+                foreach ($targets2 as $turl2) {
+                    $p1 = ['phone' => $phoneNum, 'chatId' => $phoneNum . '@c.us', 'text' => $msg, 'session' => $sessionId];
+                    $r1 = $client2->post($turl2, ['headers' => $headers2, 'json' => $p1]);
+                    $c1 = $r1->getStatusCode();
+                    if ($c1 >= 200 && $c1 < 300) {
+                        $ok2 = true;
+                        \log_message('info', 'Resend WA success http: status=' . $c1 . ' url=' . $turl2);
+                        break;
+                    }
+                    $p2 = ['to' => $phoneNum, 'chatId' => $phoneNum . '@c.us', 'text' => $msg, 'session' => $sessionId];
+                    $r2 = $client2->post($turl2, ['headers' => $headers2, 'json' => $p2]);
+                    $c2 = $r2->getStatusCode();
+                    if ($c2 >= 200 && $c2 < 300) {
+                        $ok2 = true;
+                        \log_message('info', 'Resend WA success http: status=' . $c2 . ' url=' . $turl2);
+                        break;
+                    }
+                    $p3 = ['phone' => $phoneNum, 'chatId' => $phoneNum . '@c.us', 'message' => $msg, 'session' => $sessionId];
+                    $r3 = $client2->post($turl2, ['headers' => $headers2, 'json' => $p3]);
+                    $c3 = $r3->getStatusCode();
+                    if ($c3 >= 200 && $c3 < 300) {
+                        $ok2 = true;
+                        \log_message('info', 'Resend WA success http: status=' . $c3 . ' url=' . $turl2);
+                        break;
+                    }
+                    $p4 = ['phone' => $phoneNum, 'chatId' => $phoneNum . '@c.us', 'message' => $msg, 'session' => $sessionId];
+                    $r4 = $client2->post($turl2, ['headers' => ['Content-Type' => 'application/x-www-form-urlencoded'] + $headers2, 'form_params' => $p4]);
+                    $c4 = $r4->getStatusCode();
+                    if ($c4 >= 200 && $c4 < 300) {
+                        $ok2 = true;
+                        \log_message('info', 'Resend WA success http: status=' . $c4 . ' url=' . $turl2);
+                        break;
+                    }
+                    if (str_ends_with($turl2, '/messages')) {
+                        $p5 = ['chatId' => $phoneNum . '@c.us', 'body' => $msg, 'session' => $sessionId];
+                        $r5 = $client2->post($turl2, ['headers' => $headers2, 'json' => $p5]);
+                        $c5 = $r5->getStatusCode();
+                        if ($c5 >= 200 && $c5 < 300) {
+                            $ok2 = true;
+                            \log_message('info', 'Resend WA success http: status=' . $c5 . ' url=' . $turl2);
+                            break;
+                        }
+                    }
+                }
+                if (!$ok2) {
+                    \log_message('error', 'Resend WA http fallback final failed');
+                }
+            } catch (\Throwable $e2) {
+                \log_message('error', 'Resend WA http fallback exception: ' . $e2->getMessage());
+            }
+        }
+        $session->setFlashdata('message', 'link aktivasi sudah dikirim ulang');
+        $baseTo = rtrim(config('App')->baseURL, '/');
+        return redirect()->to($baseTo . '/resend', 303, 'auto');
     }
 }

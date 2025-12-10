@@ -17,6 +17,11 @@
               <small class="text-muted">Variabel: {{nama}}, {{no_anggota}}, {{link}}</small>
             </div>
             <div class="col-12">
+              <label class="form-label">Template Pesan Daftar</label>
+              <textarea class="form-control" id="tplDaftar" name="daftar" rows="4" placeholder="Contoh: Halo {{nama}} ({{no_anggota}}), biaya awal: Pokok Rp {{biaya_pokok}}, Wajib Rp {{biaya_wajib}}. Total Rp {{total}}."></textarea>
+              <small class="text-muted">Variabel: {{nama}}, {{no_anggota}}, {{biaya_pokok}}, {{biaya_wajib}}, {{total}}</small>
+            </div>
+            <div class="col-12">
               <label class="form-label">Template Pesan Simpanan Wajib</label>
               <textarea class="form-control" id="tplWajib" name="wajib" rows="4" placeholder="Contoh: {{nama}} telah menyimpan wajib tanggal {{tanggal}} sebesar Rp {{jumlah}}"></textarea>
               <small class="text-muted">Variabel: {{nama}}, {{tanggal}}, {{jumlah}}, {{status}}</small>
@@ -31,6 +36,11 @@
               <textarea class="form-control" id="tplForgot" name="forgot" rows="4" placeholder="Contoh: {{nama}}, reset password anda: {{link}}"></textarea>
               <small class="text-muted">Variabel: {{nama}}, {{link}}</small>
             </div>
+            <div class="col-12">
+              <label class="form-label">Template Pesan Status Anggota</label>
+              <textarea class="form-control" id="tplStatusAnggota" name="status_anggota" rows="4" placeholder="Contoh: Halo {{nama}} ({{no_anggota}}), status keanggotaan anda: {{status}}."></textarea>
+              <small class="text-muted">Variabel: {{nama}}, {{no_anggota}}, {{status}}</small>
+            </div>
             <div class="col-12 text-end">
               <button type="submit" class="btn btn-primary">Simpan</button>
             </div>
@@ -44,11 +54,13 @@
   (function(){
     const f = document.getElementById('formWaha');
     const r = document.getElementById('tplRegister');
+    const d = document.getElementById('tplDaftar');
     const w = document.getElementById('tplWajib');
     const s = document.getElementById('tplSukarela');
     const fg = document.getElementById('tplForgot');
+    const sta = document.getElementById('tplStatusAnggota');
     fetch('/admin/api/setting/waha').then(x=>x.json()).then(j=>{
-      r.value = j.register||''; w.value = j.wajib||''; s.value = j.sukarela||''; fg.value = j.forgot||'';
+      r.value = j.register||''; d.value = j.daftar||''; w.value = j.wajib||''; s.value = j.sukarela||''; fg.value = j.forgot||''; sta.value = j.status_anggota||'';
     });
     f.addEventListener('submit', function(e){
       e.preventDefault();

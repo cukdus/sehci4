@@ -12,7 +12,7 @@
       <div class="card card-outline card-secondary">
         <div class="card-body">
             <div class="row mb-4">
-                <div class="col-md-4">
+                <div class="col-lg-4 col-md-6 mb-3">
                     <div class="card shadow-sm border-0 bg-primary text-white">
                         <div class="card-body">
                             <h6>Total Simpanan</h6>
@@ -20,7 +20,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-md-4">
+                <div class="col-lg-4 col-md-6 mb-3">
                 <div class="card shadow-sm border-0 bg-success text-white">
                     <div class="card-body">
                     <h6>Terbayar</h6>
@@ -28,7 +28,7 @@
                     </div>
                 </div>
                 </div>
-                <div class="col-md-4">
+                <div class="col-lg-4 col-md-6 mb-3">
                 <div class="card shadow-sm border-0 bg-warning text-dark">
                     <div class="card-body">
                     <h6>Belum Terbayar</h6>
@@ -110,7 +110,9 @@
               <td>${fmt(parseFloat(s.jumlah||0))}</td>
               <td><span class="badge ${badgeClass(s.status)}">${s.status||'-'}</span></td>
               <td class="text-center">
-                <button class="btn btn-sm btn-info me-1" title="Detail"><i class="bi bi-eye"></i></button>
+                <div class="form-check form-switch d-inline-block">
+                  <input class="form-check-input" type="checkbox" role="switch" ${s.status==='aktif'?'checked':''} data-id="${s.id_simpanan}" onchange="window._togglePokok(this)" />
+                </div>
               </td>
             `;
             rowsEl.appendChild(tr);
@@ -126,6 +128,17 @@
     prevBtn.addEventListener('click',()=>{ if(page>1){ page--; load(); } });
     nextBtn.addEventListener('click',()=>{ page++; load(); });
     if(filterStatusEl){ filterStatusEl.addEventListener('change', ()=>{ page = 1; load(); }); }
+    window._togglePokok = function(sw){
+      const id = sw.getAttribute('data-id');
+      const status = sw.checked ? 'aktif' : 'pending';
+      const ok = confirm('Ubah status simpanan pokok menjadi '+status+'?');
+      if(!ok){ sw.checked = !sw.checked; return; }
+      fetch('/admin/simpanan/pokok/toggle',{
+        method:'POST',
+        headers:{'Content-Type':'application/x-www-form-urlencoded'},
+        body:'id_simpanan='+encodeURIComponent(id)+'&status='+encodeURIComponent(status)
+      }).then(r=>r.json()).then(j=>{ load(); });
+    }
     load();
   })();
 </script>

@@ -52,7 +52,7 @@
             <?php
             $session = session();
             $user = $session ? $session->get('user') : null;
-            $defaultFoto = '/assets/img/user2-160x160.jpg';
+            $defaultFoto = '/assets/img/user2-160x160.png';
             $fotoSrc = $defaultFoto;
             $displayName = $user['username'] ?? 'Pengguna';
             $memberSince = null;

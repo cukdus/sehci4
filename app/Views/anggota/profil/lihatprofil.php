@@ -40,7 +40,7 @@
           <div class="row g-4">
             <div class="col-md-6 text-center">
               <?php $foto = trim((string) ($anggota['foto'] ?? '')); ?>
-              <img src="<?= $foto !== '' ? esc($foto) : 'https://via.placeholder.com/160x160?text=Foto' ?>" alt="Foto Anggota" class="img-thumbnail" style="max-width:300px; height:auto;" />
+              <img src="<?= $foto !== '' ? esc($foto) : '/assets/img/user2-160x160.png' ?>" alt="Foto Anggota" class="img-thumbnail" style="max-width:300px; height:auto;" />
             </div>
             <div class="col-md-6">
               <div class="d-flex justify-content-between align-items-start flex-wrap">
@@ -49,6 +49,8 @@
                   <div class="mb-2"><strong>No. Anggota:</strong> <?= esc($anggota['no_anggota'] ?? '') ?></div>
                   <div class="mb-2"><strong>Jenis Kelamin:</strong> <?= esc($anggota['jenis_kelamin'] ?? '') ?></div>
                   <div class="mb-2"><strong>Tempat, Tanggal Lahir:</strong> <?= esc($anggota['tempat_lahir'] ?? '') ?>, <?= esc($anggota['tanggal_lahir'] ?? '') ?></div>
+                  <div class="mb-2"><strong>Nama Ibu Kandung:</strong> <?= esc($anggota['nama_ibu'] ?? '') ?></div>
+                  <div class="mb-2"><strong>Nama Ibu:</strong> <?= esc($anggota['nama_ibu'] ?? '') ?></div>
                   <div class="mb-2"><strong>Alamat:</strong> <?= esc($anggota['alamat'] ?? '') ?></div>
                   <div class="mb-2"><strong>No Telepon:</strong> <?= esc($anggota['no_telepon'] ?? '') ?></div>
                   <div class="mb-2"><strong>Email:</strong> <?= esc($anggota['email'] ?? '') ?></div>
@@ -124,4 +126,28 @@
     </div>
   </div>
 </main>
+<script>
+  (function(){
+    var el = document.querySelector('.alert.alert-success');
+    if (!el) return;
+    setTimeout(function(){
+      try { var inst = bootstrap.Alert.getOrCreateInstance(el); inst.close(); }
+      catch(e){ el.remove(); }
+    }, 4000);
+  })();
+</script>
+<script>
+  (function(){
+    var el = document.querySelector('.alert.alert-success');
+    if (!el) return;
+    setTimeout(function(){
+      try {
+        var inst = bootstrap.Alert.getOrCreateInstance(el);
+        inst.close();
+      } catch (e) {
+        el.remove();
+      }
+    }, 4000);
+  })();
+</script>
 

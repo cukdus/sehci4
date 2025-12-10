@@ -386,6 +386,8 @@ class Admin extends Controller
                 ['slug' => 'wajib', 'content' => (string) $this->request->getPost('wajib')],
                 ['slug' => 'sukarela', 'content' => (string) $this->request->getPost('sukarela')],
                 ['slug' => 'forgot', 'content' => (string) $this->request->getPost('forgot')],
+                ['slug' => 'daftar', 'content' => (string) $this->request->getPost('daftar')],
+                ['slug' => 'status_anggota', 'content' => (string) $this->request->getPost('status_anggota')],
             ];
             foreach ($items as $it) {
                 $exists = $db->table('waha_templates')->where('slug', $it['slug'])->get()->getRowArray();
@@ -398,9 +400,55 @@ class Admin extends Controller
             return $this->response->setJSON(['ok' => true]);
         }
         $rows = $db->table('waha_templates')->get()->getResultArray();
-        $map = ['register' => '', 'wajib' => '', 'sukarela' => '', 'forgot' => ''];
+        $map = ['register' => '', 'wajib' => '', 'sukarela' => '', 'forgot' => '', 'daftar' => '', 'status_anggota' => ''];
         foreach ($rows as $r) {
             $map[$r['slug']] = (string) ($r['content'] ?? '');
+        }
+        return $this->response->setJSON($map);
+    }
+
+    public function apiSimpananConfig()
+    {
+        $session = session();
+        $user = $session->get('user');
+        if (!$session->get('isLoggedIn') || !$user) {
+            return $this->response->setStatusCode(401)->setJSON(['error' => 'Unauthorized']);
+        }
+        $role = $user['role'] ?? null;
+        if (!in_array($role, ['admin', 'petugas', 'anggota_petugas'], true)) {
+            return $this->response->setStatusCode(403)->setJSON(['error' => 'Forbidden']);
+        }
+        $db = \Config\Database::connect();
+        $tables = $db->listTables();
+        if (!in_array('settings', $tables, true)) {
+            $db->query('CREATE TABLE IF NOT EXISTS settings (
+                id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                `key` VARCHAR(100) NOT NULL UNIQUE,
+                `value` TEXT NULL,
+                updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+        }
+        if (strtolower($this->request->getMethod()) === 'post') {
+            $feePokok = trim((string) ($this->request->getPost('fee_pokok') ?? ''));
+            $feeWajib = trim((string) ($this->request->getPost('fee_wajib') ?? ''));
+            $pairs = [
+                ['key' => 'fee_pokok', 'value' => $feePokok],
+                ['key' => 'fee_wajib', 'value' => $feeWajib],
+            ];
+            foreach ($pairs as $p) {
+                $exists = $db->table('settings')->where('key', $p['key'])->get()->getRowArray();
+                if ($exists) {
+                    $db->table('settings')->where('key', $p['key'])->update(['value' => $p['value']]);
+                } else {
+                    $db->table('settings')->insert($p);
+                }
+            }
+            return $this->response->setJSON(['ok' => true]);
+        }
+        $rows = $db->table('settings')->whereIn('key', ['fee_pokok', 'fee_wajib'])->get()->getResultArray();
+        $map = ['fee_pokok' => '0', 'fee_wajib' => '0'];
+        foreach ($rows as $r) {
+            $map[$r['key']] = (string) ($r['value'] ?? '0');
         }
         return $this->response->setJSON($map);
     }
@@ -629,21 +677,15 @@ class Admin extends Controller
             $currNo = (string) ($prev['no_anggota'] ?? '');
             $postNo = trim((string) ($data['no_anggota'] ?? ''));
             if ($newStatus === 'aktif' && $currNo === '' && $postNo === '') {
-                $gen = '';
-                for ($i = 0; $i < 5; $i++) {
-                    $candidate = 'A' . date('ymd') . strtoupper(bin2hex(random_bytes(3)));
-                    $exists = (int) $db->table('anggota')->where('no_anggota', $candidate)->countAllResults();
-                    if ($exists === 0) {
-                        $gen = $candidate;
-                        break;
-                    }
-                }
-                if ($gen === '') {
-                    $gen = 'A' . time();
-                }
-                $data['no_anggota'] = $gen;
+                $actDate = date('Y-m-d');
+                $yy = date('y', strtotime($actDate));
+                $mm = date('m', strtotime($actDate));
+                $prefixYear = 'SEH' . $yy;  // reset nomor urut per tahun
+                $maxRow = $db->query('SELECT MAX(CAST(SUBSTRING(no_anggota, 8, 4) AS UNSIGNED)) AS maxseq FROM anggota WHERE no_anggota LIKE ?', [$prefixYear . '%'])->getRowArray();
+                $nextSeq = (int) ($maxRow['maxseq'] ?? 0) + 1;
+                $data['no_anggota'] = 'SEH' . $yy . $mm . str_pad((string) $nextSeq, 4, '0', STR_PAD_LEFT);
                 if (empty($prev['tanggal_gabung'])) {
-                    $data['tanggal_gabung'] = date('Y-m-d');
+                    $data['tanggal_gabung'] = $actDate;
                 }
             }
             $db->table('anggota')->where('id_anggota', $id)->update($data);
@@ -680,6 +722,107 @@ class Admin extends Controller
         } catch (\Throwable $e) {
             return redirect()->back()->with('error', 'Gagal menghapus anggota: ' . $e->getMessage());
         }
+    }
+
+    public function toggleAnggotaStatus()
+    {
+        $session = session();
+        $user = $session->get('user');
+        if (!$session->get('isLoggedIn') || !$user) {
+            return $this->response->setStatusCode(401)->setJSON(['error' => 'Unauthorized']);
+        }
+        $role = $user['role'] ?? null;
+        if (!in_array($role, ['petugas', 'admin', 'anggota_petugas'], true)) {
+            return $this->response->setStatusCode(403)->setJSON(['error' => 'Forbidden']);
+        }
+        $id = (int) ($this->request->getPost('id_anggota') ?? 0);
+        $status = strtolower(trim((string) ($this->request->getPost('status') ?? '')));
+        if ($id <= 0 || ($status !== 'aktif' && $status !== 'nonaktif')) {
+            return $this->response->setStatusCode(400)->setJSON(['error' => 'Input tidak valid']);
+        }
+        $db = \Config\Database::connect();
+        $row = $db->table('anggota')->where('id_anggota', $id)->get()->getRowArray();
+        if (!$row) {
+            return $this->response->setStatusCode(404)->setJSON(['error' => 'Data tidak ditemukan']);
+        }
+        $update = ['status' => $status];
+        if ($status === 'aktif' && trim((string) ($row['no_anggota'] ?? '')) === '') {
+            $actDate = date('Y-m-d');
+            $yy = date('y', strtotime($actDate));
+            $mm = date('m', strtotime($actDate));
+            $prefixYear = 'SEH' . $yy;  // reset nomor urut per tahun
+            $maxRow = $db->query('SELECT MAX(CAST(SUBSTRING(no_anggota, 8, 4) AS UNSIGNED)) AS maxseq FROM anggota WHERE no_anggota LIKE ?', [$prefixYear . '%'])->getRowArray();
+            $nextSeq = (int) ($maxRow['maxseq'] ?? 0) + 1;
+            $update['no_anggota'] = 'SEH' . $yy . $mm . str_pad((string) $nextSeq, 4, '0', STR_PAD_LEFT);
+            if (empty($row['tanggal_gabung'])) {
+                $update['tanggal_gabung'] = $actDate;
+            }
+        }
+        $ok = $db->table('anggota')->where('id_anggota', $id)->update($update);
+        if ($ok) {
+            try {
+                $anggotaRow = $db->table('anggota')->where('id_anggota', $id)->get()->getRowArray();
+                $noTelp = (string) ($anggotaRow['no_telepon'] ?? '');
+                $noAnggota = (string) ($anggotaRow['no_anggota'] ?? ($update['no_anggota'] ?? ''));
+                $namaAnggota = (string) ($anggotaRow['nama'] ?? '');
+                $tplRow = $db->table('waha_templates')->where('slug', 'status_anggota')->get()->getRowArray();
+                $tpl = (string) ($tplRow['content'] ?? '');
+                if ($tpl === '') {
+                    $tpl = 'Halo {{nama}} ({{no_anggota}}), status keanggotaan anda: {{status}}.';
+                }
+                $repl = ['{{nama}}', '{{no_anggota}}', '{{status}}'];
+                $vals = [$namaAnggota, $noAnggota, $status];
+                $msg = str_replace($repl, $vals, $tpl);
+                $skip = (bool) (env('WAHA_SKIP_SSL_VERIFY') ?? false);
+                $opts = [
+                    'timeout' => 10,
+                    'http_errors' => false,
+                    'allow_redirects' => ['max' => 5, 'strict' => false, 'referer' => false],
+                ];
+                if ($skip) {
+                    $opts['verify'] = false;
+                }
+                $client = \Config\Services::curlrequest($opts);
+                $envUrl = (string) (env('WAHA_SEND_URL') ?: '');
+                $base = (string) (env('WAHA_BASE_URL') ?: '');
+                $sendUrl = $envUrl !== '' ? $envUrl : (rtrim($base, '/') !== '' ? rtrim($base, '/') . '/api/sendText' : '');
+                $token = (string) (env('WAHA_TOKEN') ?: '');
+                $sessionId = (string) (env('WAHA_SESSION') ?: 'default');
+                $phoneNum = preg_replace('#\D+#', '', $noTelp !== '' ? $noTelp : (string) ($user['username'] ?? ''));
+                if ($phoneNum !== '' && str_starts_with($phoneNum, '0')) {
+                    $phoneNum = '62' . substr($phoneNum, 1);
+                }
+                if ($phoneNum !== '' && ($sendUrl !== '' || $base !== '')) {
+                    $headers = ['Content-Type' => 'application/json'];
+                    if ($token !== '') {
+                        $headers['x-api-key'] = $token;
+                        $headers['Authorization'] = 'Bearer ' . $token;
+                    }
+                    $targets = [];
+                    if ($sendUrl !== '') {
+                        $targets[] = $sendUrl;
+                    } else {
+                        $b = rtrim($base, '/');
+                        if ($b !== '') {
+                            $targets[] = $b . '/api/sendText';
+                            $targets[] = $b . '/messages';
+                        }
+                    }
+                    foreach ($targets as $turl) {
+                        $payload = ['phone' => $phoneNum, 'chatId' => $phoneNum . '@c.us', 'text' => $msg, 'session' => $sessionId];
+                        $resp = $client->post($turl, ['headers' => $headers, 'json' => $payload]);
+                        $c = $resp->getStatusCode();
+                        if ($c >= 200 && $c < 300) {
+                            break;
+                        }
+                    }
+                }
+            } catch (\Throwable $e) {
+                \log_message('error', 'WA status anggota send failed: ' . $e->getMessage());
+            }
+            return $this->response->setJSON(['success' => true]);
+        }
+        return $this->response->setStatusCode(500)->setJSON(['error' => 'Gagal memperbarui status']);
     }
 
     public function simpananPokok()
@@ -1007,5 +1150,89 @@ class Admin extends Controller
             return $this->response->setJSON(['success' => true]);
         }
         return $this->response->setStatusCode(500)->setJSON(['error' => 'Gagal mengaktifkan']);
+    }
+
+    public function toggleSukarelaStatus()
+    {
+        $session = session();
+        $user = $session->get('user');
+        if (!$session->get('isLoggedIn') || !$user) {
+            return $this->response->setStatusCode(401)->setJSON(['error' => 'Unauthorized']);
+        }
+        $role = $user['role'] ?? null;
+        if (!in_array($role, ['petugas', 'admin', 'anggota_petugas'], true)) {
+            return $this->response->setStatusCode(403)->setJSON(['error' => 'Forbidden']);
+        }
+        $id = (int) ($this->request->getPost('id_simpanan') ?? 0);
+        $status = strtolower(trim((string) ($this->request->getPost('status') ?? '')));
+        if ($id <= 0 || ($status !== 'aktif' && $status !== 'pending')) {
+            return $this->response->setStatusCode(400)->setJSON(['error' => 'Input tidak valid']);
+        }
+        $db = \Config\Database::connect();
+        $row = $db->table('simpanan')->where('id_simpanan', $id)->get()->getRowArray();
+        if (!$row || ($row['jenis_simpanan'] ?? '') !== 'sukarela') {
+            return $this->response->setStatusCode(404)->setJSON(['error' => 'Data tidak ditemukan']);
+        }
+        $ok = $db->table('simpanan')->where('id_simpanan', $id)->update(['status' => $status]);
+        if ($ok) {
+            return $this->response->setJSON(['success' => true]);
+        }
+        return $this->response->setStatusCode(500)->setJSON(['error' => 'Gagal memperbarui status']);
+    }
+
+    public function toggleWajibStatus()
+    {
+        $session = session();
+        $user = $session->get('user');
+        if (!$session->get('isLoggedIn') || !$user) {
+            return $this->response->setStatusCode(401)->setJSON(['error' => 'Unauthorized']);
+        }
+        $role = $user['role'] ?? null;
+        if (!in_array($role, ['petugas', 'admin', 'anggota_petugas'], true)) {
+            return $this->response->setStatusCode(403)->setJSON(['error' => 'Forbidden']);
+        }
+        $id = (int) ($this->request->getPost('id_simpanan') ?? 0);
+        $status = strtolower(trim((string) ($this->request->getPost('status') ?? '')));
+        if ($id <= 0 || ($status !== 'aktif' && $status !== 'pending')) {
+            return $this->response->setStatusCode(400)->setJSON(['error' => 'Input tidak valid']);
+        }
+        $db = \Config\Database::connect();
+        $row = $db->table('simpanan')->where('id_simpanan', $id)->get()->getRowArray();
+        if (!$row || ($row['jenis_simpanan'] ?? '') !== 'wajib') {
+            return $this->response->setStatusCode(404)->setJSON(['error' => 'Data tidak ditemukan']);
+        }
+        $ok = $db->table('simpanan')->where('id_simpanan', $id)->update(['status' => $status]);
+        if ($ok) {
+            return $this->response->setJSON(['success' => true]);
+        }
+        return $this->response->setStatusCode(500)->setJSON(['error' => 'Gagal memperbarui status']);
+    }
+
+    public function togglePokokStatus()
+    {
+        $session = session();
+        $user = $session->get('user');
+        if (!$session->get('isLoggedIn') || !$user) {
+            return $this->response->setStatusCode(401)->setJSON(['error' => 'Unauthorized']);
+        }
+        $role = $user['role'] ?? null;
+        if (!in_array($role, ['petugas', 'admin', 'anggota_petugas'], true)) {
+            return $this->response->setStatusCode(403)->setJSON(['error' => 'Forbidden']);
+        }
+        $id = (int) ($this->request->getPost('id_simpanan') ?? 0);
+        $status = strtolower(trim((string) ($this->request->getPost('status') ?? '')));
+        if ($id <= 0 || ($status !== 'aktif' && $status !== 'pending')) {
+            return $this->response->setStatusCode(400)->setJSON(['error' => 'Input tidak valid']);
+        }
+        $db = \Config\Database::connect();
+        $row = $db->table('simpanan')->where('id_simpanan', $id)->get()->getRowArray();
+        if (!$row || ($row['jenis_simpanan'] ?? '') !== 'pokok') {
+            return $this->response->setStatusCode(404)->setJSON(['error' => 'Data tidak ditemukan']);
+        }
+        $ok = $db->table('simpanan')->where('id_simpanan', $id)->update(['status' => $status]);
+        if ($ok) {
+            return $this->response->setJSON(['success' => true]);
+        }
+        return $this->response->setStatusCode(500)->setJSON(['error' => 'Gagal memperbarui status']);
     }
 }

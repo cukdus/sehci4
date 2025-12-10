@@ -43,6 +43,9 @@
           <span class="text-muted">Belum jadi anggota?</span>
           <a href="/register" class="text-decoration-none">Daftar Disini</a>
         </div>
+        <div class="text-center mt-2">
+          <a href="/forgot" class="text-decoration-none">Lupa Password?</a>
+        </div>
       </div>
     </div>
 

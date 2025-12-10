@@ -33,6 +33,15 @@
             <?php if (session()->has('error')): ?>
               <div class="alert alert-danger"><?= esc(session('error')) ?></div>
             <?php endif; ?>
+            <?php if (session()->has('errors')): ?>
+              <div class="alert alert-warning">
+                <ul class="mb-0">
+                  <?php foreach ((array) session('errors') as $err): ?>
+                    <li><?= esc($err) ?></li>
+                  <?php endforeach; ?>
+                </ul>
+              </div>
+            <?php endif; ?>
             <form action="/register" method="post" novalidate="">
               <div class="row g-3">
                 <div class="col-md-6">
@@ -44,6 +53,7 @@
                     class="form-control"
                     required=""
                   />
+                  <div class="invalid-feedback">Nama wajib diisi</div>
                 </div>
 
                 <div class="col-md-6">
@@ -58,6 +68,7 @@
                     max="<?= date('Y-m-d', strtotime('-18 years')) ?>"
                     required=""
                   />
+                  <div class="invalid-feedback">Tanggal lahir wajib diisi</div>
                 </div>
 
                 <div class="col-md-6">
@@ -69,6 +80,7 @@
                     class="form-control"
                     required=""
                   />
+                  <div class="invalid-feedback">Email wajib diisi</div>
                 </div>
 
                 <div class="col-md-6">
@@ -81,6 +93,7 @@
                     pattern="[0-9+\-() ]+"
                     required=""
                   />
+                  <div class="invalid-feedback">No. telepon wajib diisi</div>
                 </div>
 
                 <div class="col-12">
@@ -100,11 +113,47 @@
                   </div>
                 </div>
 
-                <div class="col-12 text-end">
-                  <button type="submit" class="btn-standard">Daftar</button>
-                </div>
+              <div class="col-12 text-end">
+                <button type="submit" class="btn-standard">Daftar</button>
+              </div>
               </div>
             </form>
+            <script>
+              (function(){
+                const form = document.querySelector('#register-section form');
+                if (!form) return;
+                form.addEventListener('submit', function(e){
+                  let missing = [];
+                  const fullName = document.getElementById('fullName');
+                  const birthDate = document.getElementById('birthDate');
+                  const email = document.getElementById('email');
+                  const phone = document.getElementById('phone');
+                  const agree = document.getElementById('agree');
+                  [fullName, birthDate, email, phone].forEach(function(el){
+                    el.classList.remove('is-invalid');
+                    if (!el.value || (el.type === 'email' && !el.checkValidity())) {
+                      el.classList.add('is-invalid');
+                      const label = el.previousElementSibling ? el.previousElementSibling.textContent.trim() : el.name;
+                      missing.push(label);
+                    }
+                  });
+                  if (!agree.checked) {
+                    missing.push('Persetujuan');
+                  }
+                  const existing = document.getElementById('registerAlert');
+                  if (existing) { existing.remove(); }
+                  if (missing.length > 0) {
+                    e.preventDefault();
+                    const alertDiv = document.createElement('div');
+                    alertDiv.className = 'alert alert-danger';
+                    alertDiv.id = 'registerAlert';
+                    alertDiv.innerHTML = 'Data wajib diisi: ' + missing.join(', ');
+                    form.parentNode.insertBefore(alertDiv, form);
+                    alertDiv.scrollIntoView({behavior:'smooth'});
+                  }
+                });
+              })();
+            </script>
           </div>
         </div>
       </div>

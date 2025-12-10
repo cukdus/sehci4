@@ -38,6 +38,28 @@
             </div>
           </div>
 
+          <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+              <h5 class="card-title mb-0">Konfigurasi Biaya Awal</h5>
+              <small class="text-muted">Simpan untuk memperbarui biaya default</small>
+            </div>
+            <div class="card-body">
+              <form id="formFee" class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label">Biaya Simpanan Pokok (Rp)</label>
+                  <input type="number" min="0" step="1000" class="form-control" id="feePokok" name="fee_pokok" placeholder="Masukkan biaya pokok" />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Biaya Simpanan Wajib (Rp)</label>
+                  <input type="number" min="0" step="1000" class="form-control" id="feeWajib" name="fee_wajib" placeholder="Masukkan biaya wajib" />
+                </div>
+                <div class="col-12 text-end">
+                  <button type="submit" class="btn btn-primary">Simpan Biaya</button>
+                </div>
+              </form>
+            </div>
+          </div>
+
           <div class="card shadow-sm border-0">
             <div class="card-body">
               <div class="table-responsive">
@@ -129,9 +151,31 @@
           if(sumSukarelaEl) sumSukarelaEl.textContent = 'Rp ' + fmt(parseFloat(s.sumSukarela||0));
         });
     }
+    const formFee = document.getElementById('formFee');
+    const feePokokEl = document.getElementById('feePokok');
+    const feeWajibEl = document.getElementById('feeWajib');
+    function loadFee(){
+      fetch('/admin/api/simpanan/config').then(r=>r.json()).then(j=>{
+        if(feePokokEl) feePokokEl.value = (j.fee_pokok||'0');
+        if(feeWajibEl) feeWajibEl.value = (j.fee_wajib||'0');
+      });
+    }
+    formFee?.addEventListener('submit', function(e){
+      e.preventDefault();
+      const fd = new FormData(formFee);
+      fetch('/admin/api/simpanan/config', { method: 'POST', body: fd }).then(r=>r.json()).then(j=>{
+        const ok = j && (j.ok===true);
+        const alert = document.createElement('div');
+        alert.className = 'alert ' + (ok?'alert-success':'alert-danger');
+        alert.textContent = ok ? 'Biaya berhasil disimpan' : 'Gagal menyimpan biaya';
+        formFee.parentElement.insertBefore(alert, formFee);
+        setTimeout(()=>{ alert.remove(); }, 3000);
+      });
+    });
     prevBtn.addEventListener('click',()=>{ if(page>1){ page--; load(); } });
     nextBtn.addEventListener('click',()=>{ page++; load(); });
     load();
     loadSummary();
+    loadFee();
   })();
 </script>

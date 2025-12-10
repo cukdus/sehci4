@@ -14,18 +14,29 @@
       <div class="card-body p-4 p-md-5">
         <h2 class="mb-3 text-center">Aktivasi Akun</h2>
         <p class="text-center text-muted mb-4">Buat password untuk menyelesaikan aktivasi akun.</p>
-        <?= session()->has('error') ? '<div class="alert alert-danger">' . esc(session('error')) . '</div>' : '' ?>
-        <form action="/activate/<?= esc($token) ?>" method="post" novalidate>
-          <div class="mb-3">
-            <label for="password" class="form-label">Password Baru</label>
-            <input type="password" id="password" name="password" class="form-control form-control-lg" required minlength="6">
-          </div>
-          <div class="mb-4">
-            <label for="confirm" class="form-label">Konfirmasi Password</label>
-            <input type="password" id="confirm" name="confirm" class="form-control form-control-lg" required minlength="6">
-          </div>
-          <button type="submit" class="btn btn-primary btn-lg w-100">Simpan Password</button>
-        </form>
+        <?php if (session()->has('error') && empty($invalid)): ?>
+          <div class="alert alert-danger"><?= esc(session('error')) ?></div>
+        <?php endif; ?>
+        <?php if (!empty($invalid)): ?>
+          <?php if (!empty($resent)): ?>
+            <div class="alert alert-success text-center">link aktivasi sudah dikirim ulang</div>
+          <?php else: ?>
+            <div class="alert alert-warning text-center">Link aktivasi sudah tidak berlaku.</div>
+            <a href="/resend" class="btn btn-primary btn-lg w-100 mt-3">kirim ulang</a>
+          <?php endif; ?>
+        <?php else: ?>
+          <form action="/activate/<?= esc($token) ?>" method="post" novalidate>
+            <div class="mb-3">
+              <label for="password" class="form-label">Password Baru</label>
+              <input type="password" id="password" name="password" class="form-control form-control-lg" required minlength="6">
+            </div>
+            <div class="mb-4">
+              <label for="confirm" class="form-label">Konfirmasi Password</label>
+              <input type="password" id="confirm" name="confirm" class="form-control form-control-lg" required minlength="6">
+            </div>
+            <button type="submit" class="btn btn-primary btn-lg w-100">Simpan Password</button>
+          </form>
+        <?php endif; ?>
         <div class="text-center mt-4">
           <a href="/login" class="text-decoration-none">Kembali ke Halaman Masuk</a>
         </div>

@@ -19,49 +19,54 @@
               <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>
           <?php endif; ?>
-          <form action="/anggota/profil/update" method="post" enctype="multipart/form-data">
+          <form id="formEditProfil" action="/anggota/profil/update" method="post" enctype="multipart/form-data" novalidate>
             <?= csrf_field() ?>
             <input type="hidden" name="id_anggota" value="<?= esc($anggota['id_anggota']) ?>" />
             <div class="row g-3">
               <div class="col-md-4">
-                <label class="form-label">No. Anggota</label>
-                <input type="text" name="no_anggota" class="form-control" value="<?= esc($anggota['no_anggota']) ?>" placeholder="Akan terisi otomatis" disabled />
-              </div>
-              <div class="col-md-8">
                 <label class="form-label">Nama</label>
                 <input type="text" name="nama" class="form-control" value="<?= esc($anggota['nama']) ?>" required />
               </div>
               <div class="col-md-4">
+                <label class="form-label">Nama Ibu Kandung</label>
+                <input type="text" id="nama_ibu" name="nama_ibu" class="form-control" value="<?= esc($anggota['nama_ibu'] ?? '') ?>" required />
+                <div class="invalid-feedback">Nama ibu kandung wajib diisi</div>
+              </div>
+              <div class="col-md-4">
                 <label class="form-label">Jenis Kelamin</label>
-                <select name="jenis_kelamin" class="form-select">
+                <select id="jenis_kelamin" name="jenis_kelamin" class="form-select" required>
                   <option value="" <?= ($anggota['jenis_kelamin'] ?? '') === '' ? 'selected' : '' ?>>-</option>
                   <option value="Laki-laki" <?= ($anggota['jenis_kelamin'] ?? '') === 'Laki-laki' ? 'selected' : '' ?>>Laki-laki</option>
                   <option value="Perempuan" <?= ($anggota['jenis_kelamin'] ?? '') === 'Perempuan' ? 'selected' : '' ?>>Perempuan</option>
                 </select>
+                <div class="invalid-feedback">Jenis kelamin wajib diisi</div>
               </div>
               <div class="col-md-4">
                 <label class="form-label">Tempat Lahir</label>
-                <input type="text" name="tempat_lahir" class="form-control" value="<?= esc($anggota['tempat_lahir'] ?? '') ?>" />
+                <input type="text" id="tempat_lahir" name="tempat_lahir" class="form-control" value="<?= esc($anggota['tempat_lahir'] ?? '') ?>" required />
+                <div class="invalid-feedback">Tempat lahir wajib diisi</div>
               </div>
               <div class="col-md-4">
                 <label class="form-label">Tanggal Lahir</label>
-                <input type="date" name="tanggal_lahir" class="form-control" value="<?= esc($anggota['tanggal_lahir'] ?? '') ?>" />
-              </div>
-              <div class="col-md-8">
-                <label class="form-label">Alamat</label>
-                <textarea name="alamat" class="form-control" rows="2"><?= esc($anggota['alamat']) ?></textarea>
+                <input type="date" id="tanggal_lahir" name="tanggal_lahir" class="form-control" value="<?= esc($anggota['tanggal_lahir'] ?? '') ?>" max="<?= date('Y-m-d', strtotime('-18 years')) ?>" />
               </div>
               <div class="col-md-4">
                 <label class="form-label">No Telepon</label>
-                <input type="text" name="no_telepon" class="form-control" value="<?= esc($anggota['no_telepon']) ?>" />
+                <input type="text" id="no_telepon" name="no_telepon" class="form-control" value="<?= esc($anggota['no_telepon']) ?>" pattern="[0-9+\-() ]+" />
               </div>
+              <div class="col-md-12">
+                <label class="form-label">Alamat</label>
+                <textarea id="alamat" name="alamat" class="form-control" rows="2" required><?= esc($anggota['alamat']) ?></textarea>
+                <div class="invalid-feedback">Alamat wajib diisi</div>
+              </div>
+              
               <div class="col-md-4">
                 <label class="form-label">No KTP</label>
-                <input type="text" name="no_ktp" class="form-control" value="<?= esc($anggota['no_ktp'] ?? '') ?>" />
+                <input type="text" name="no_ktp" class="form-control" value="<?= esc($anggota['no_ktp'] ?? '') ?>" required />
               </div>
               <div class="col-md-4">
                 <label class="form-label">No KK</label>
-                <input type="text" name="no_kk" class="form-control" value="<?= esc($anggota['no_kk'] ?? '') ?>" />
+                <input type="text" name="no_kk" class="form-control" value="<?= esc($anggota['no_kk'] ?? '') ?>" required />
               </div>
               <div class="col-md-4">
                 <label class="form-label">No NPWP</label>
@@ -134,7 +139,7 @@
               </div>
               <div class="col-md-4">
                 <label class="form-label">Email</label>
-                <input type="email" name="email" class="form-control" value="<?= esc($anggota['email']) ?>" />
+                <input type="email" id="email" name="email" class="form-control" value="<?= esc($anggota['email']) ?>" />
               </div>
               <div class="col-md-4">
                 <label class="form-label">Tanggal Gabung</label>
@@ -150,7 +155,7 @@
                 <label class="form-label">Preview</label>
                 <div>
                   <?php $foto = trim((string) ($anggota['foto'] ?? '')); ?>
-                  <img id="fotoPreview" src="<?= $foto !== '' ? esc($foto) : 'https://via.placeholder.com/160x160?text=Foto' ?>" class="img-thumbnail" style="max-width:160px; height:auto;" />
+                  <img id="fotoPreview" src="<?= $foto !== '' ? esc($foto) : '/assets/img/user2-160x160.png' ?>" class="img-thumbnail" style="max-width:160px; height:auto;" />
                 </div>
               </div>
             </div>
@@ -267,5 +272,46 @@
     updateOtherSkill();
     syncOtherSkill();
   }
+</script>
+<script>
+  (function(){
+    const form = document.getElementById('formEditProfil');
+    if (!form) return;
+    form.addEventListener('submit', function(e){
+      let missing = [];
+      const jenisKelamin = document.getElementById('jenis_kelamin');
+      const tempatLahir = document.getElementById('tempat_lahir');
+      const alamat = document.getElementById('alamat');
+      const noKtp = form.querySelector('input[name="no_ktp"]');
+      const noKk = form.querySelector('input[name="no_kk"]');
+      const namaIbu = document.getElementById('nama_ibu');
+      [jenisKelamin, tempatLahir, alamat, noKtp, noKk, namaIbu].forEach(function(el){
+        if (el) el.classList.remove('is-invalid');
+      });
+      function addMissing(el, label){
+        if (el) el.classList.add('is-invalid');
+        missing.push(label);
+      }
+      if (!jenisKelamin || !jenisKelamin.value) addMissing(jenisKelamin, 'Jenis Kelamin');
+      if (!tempatLahir || !tempatLahir.value) addMissing(tempatLahir, 'Tempat Lahir');
+      if (!alamat || !alamat.value) addMissing(alamat, 'Alamat');
+
+      if (!noKtp || !noKtp.value) addMissing(noKtp, 'No KTP');
+      if (!noKk || !noKk.value) addMissing(noKk, 'No KK');
+      if (!namaIbu || !namaIbu.value) addMissing(namaIbu, 'Nama Ibu Kandung');
+
+      const existing = document.getElementById('editProfilAlert');
+      if (existing) { existing.remove(); }
+      if (missing.length > 0) {
+        e.preventDefault();
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'alert alert-danger';
+        alertDiv.id = 'editProfilAlert';
+        alertDiv.innerHTML = 'Data wajib diisi: ' + missing.join(', ');
+        form.parentNode.insertBefore(alertDiv, form);
+        alertDiv.scrollIntoView({behavior:'smooth'});
+      }
+    });
+  })();
 </script>
 

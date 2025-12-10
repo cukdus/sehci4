@@ -125,6 +125,7 @@ class Anggota extends Controller
 
         $data = [
             'nama' => trim((string) $this->request->getPost('nama')),
+            'nama_ibu' => trim((string) $this->request->getPost('nama_ibu')) ?: null,
             'jenis_kelamin' => trim((string) $this->request->getPost('jenis_kelamin')) ?: null,
             'tempat_lahir' => trim((string) $this->request->getPost('tempat_lahir')) ?: null,
             'tanggal_lahir' => trim((string) $this->request->getPost('tanggal_lahir')) ?: null,
@@ -200,6 +201,118 @@ class Anggota extends Controller
             if ($skippedBasicSkill) {
                 $session->setFlashdata('warning', 'Basic Skill tidak disimpan karena kolom tidak tersedia');
             }
+
+            $anggotaRow = $db->table('anggota')->where('id_anggota', $id)->get()->getRowArray();
+            $noTelp = (string) ($anggotaRow['no_telepon'] ?? '');
+            $noAnggota = (string) ($anggotaRow['no_anggota'] ?? '');
+            $namaAnggota = (string) ($anggotaRow['nama'] ?? '');
+
+            $hasPokok = (int) $db->table('simpanan')->where('id_anggota', $id)->where('jenis_simpanan', 'pokok')->countAllResults() > 0;
+            $hasWajib = (int) $db->table('simpanan')->where('id_anggota', $id)->where('jenis_simpanan', 'wajib')->countAllResults() > 0;
+
+            if (!$hasPokok && !$hasWajib) {
+                $tables = $db->listTables();
+                if (!in_array('settings', $tables, true)) {
+                    $db->query('CREATE TABLE IF NOT EXISTS settings (
+                        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                        `key` VARCHAR(100) NOT NULL UNIQUE,
+                        `value` TEXT NULL,
+                        updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+                }
+                $cfgRows = $db->table('settings')->whereIn('key', ['fee_pokok', 'fee_wajib'])->get()->getResultArray();
+                $cfg = ['fee_pokok' => '0', 'fee_wajib' => '0'];
+                foreach ($cfgRows as $r) {
+                    $cfg[$r['key']] = (string) ($r['value'] ?? '0');
+                }
+                $feePokok = (float) preg_replace('#[^0-9\.]#', '', (string) $cfg['fee_pokok']);
+                $feeWajib = (float) preg_replace('#[^0-9\.]#', '', (string) $cfg['fee_wajib']);
+
+                if ($feePokok > 0) {
+                    $db->table('simpanan')->insert([
+                        'id_anggota' => $id,
+                        'jenis_simpanan' => 'pokok',
+                        'jumlah' => $feePokok,
+                        'tanggal_simpan' => date('Y-m-d'),
+                        'status' => 'pending',
+                    ]);
+                }
+                if ($feeWajib > 0) {
+                    $db->table('simpanan')->insert([
+                        'id_anggota' => $id,
+                        'jenis_simpanan' => 'wajib',
+                        'jumlah' => $feeWajib,
+                        'tanggal_simpan' => date('Y-m-d'),
+                        'status' => 'pending',
+                    ]);
+                }
+
+                $tplRow = $db->table('waha_templates')->where('slug', 'daftar')->get()->getRowArray();
+                $tpl = (string) ($tplRow['content'] ?? '');
+                if ($tpl === '') {
+                    $tpl = 'Halo {{nama}} ({{no_anggota}}), biaya awal: Pokok Rp {{biaya_pokok}}, Wajib Rp {{biaya_wajib}}. Total Rp {{total}}.';
+                }
+                $total = $feePokok + $feeWajib;
+                $repl = [
+                    '{{nama}}', '{{no_anggota}}', '{{biaya_pokok}}', '{{biaya_wajib}}', '{{total}}'
+                ];
+                $vals = [
+                    $namaAnggota, $noAnggota,
+                    number_format($feePokok, 2, ',', '.'),
+                    number_format($feeWajib, 2, ',', '.'),
+                    number_format($total, 2, ',', '.')
+                ];
+                $msg = str_replace($repl, $vals, $tpl);
+                try {
+                    $skip = (bool) (env('WAHA_SKIP_SSL_VERIFY') ?? false);
+                    $opts = [
+                        'timeout' => 10,
+                        'http_errors' => false,
+                        'allow_redirects' => ['max' => 5, 'strict' => false, 'referer' => false],
+                    ];
+                    if ($skip) {
+                        $opts['verify'] = false;
+                    }
+                    $client = \Config\Services::curlrequest($opts);
+                    $envUrl = (string) (env('WAHA_SEND_URL') ?: '');
+                    $base = (string) (env('WAHA_BASE_URL') ?: '');
+                    $sendUrl = $envUrl !== '' ? $envUrl : (rtrim($base, '/') !== '' ? rtrim($base, '/') . '/api/sendText' : '');
+                    $token = (string) (env('WAHA_TOKEN') ?: '');
+                    $sessionId = (string) (env('WAHA_SESSION') ?: 'default');
+                    $phoneNum = preg_replace('#\D+#', '', $noTelp !== '' ? $noTelp : (string) ($user['username'] ?? ''));
+                    if ($phoneNum !== '' && str_starts_with($phoneNum, '0')) {
+                        $phoneNum = '62' . substr($phoneNum, 1);
+                    }
+                    if ($phoneNum !== '' && ($sendUrl !== '' || $base !== '') && ($feePokok > 0 || $feeWajib > 0)) {
+                        $headers = ['Content-Type' => 'application/json'];
+                        if ($token !== '') {
+                            $headers['x-api-key'] = $token;
+                            $headers['Authorization'] = 'Bearer ' . $token;
+                        }
+                        $targets = [];
+                        if ($sendUrl !== '') {
+                            $targets[] = $sendUrl;
+                        } else {
+                            $b = rtrim($base, '/');
+                            if ($b !== '') {
+                                $targets[] = $b . '/api/sendText';
+                                $targets[] = $b . '/messages';
+                            }
+                        }
+                        foreach ($targets as $turl) {
+                            $payload = ['phone' => $phoneNum, 'chatId' => $phoneNum . '@c.us', 'text' => $msg, 'session' => $sessionId];
+                            $resp = $client->post($turl, ['headers' => $headers, 'json' => $payload]);
+                            $c = $resp->getStatusCode();
+                            if ($c >= 200 && $c < 300) {
+                                break;
+                            }
+                        }
+                    }
+                } catch (\Throwable $e) {
+                    log_message('error', 'WA daftar send failed: ' . $e->getMessage());
+                }
+            }
+
             return redirect()->to('/anggota/profil')->with('message', 'Profil berhasil diperbarui');
         } catch (\Throwable $e) {
             return redirect()->back()->with('error', 'Gagal memperbarui profil: ' . $e->getMessage());
