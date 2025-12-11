@@ -9,7 +9,7 @@ class Auth extends Controller
 {
     public function index()
     {
-        return view('Auth/login');
+        return view('Auth/login', ['config' => config('Auth')]);
     }
 
     public function login()
