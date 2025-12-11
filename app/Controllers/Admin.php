@@ -407,6 +407,298 @@ class Admin extends Controller
         return $this->response->setJSON($map);
     }
 
+    public function settingAdminData()
+    {
+        $session = session();
+        $user = $session->get('user');
+        if (!$session->get('isLoggedIn') || !$user) {
+            return redirect()->to('/login');
+        }
+        $role = $user['role'] ?? null;
+        if (!in_array($role, ['admin', 'petugas', 'anggota_petugas'], true)) {
+            return redirect()->to('/login');
+        }
+        $content = view('admin/setting/admindata');
+        return view('admin/layout', [
+            'content' => $content,
+            'title' => 'Data Admin',
+        ]);
+    }
+
+    public function apiSettingAdminData()
+    {
+        $session = session();
+        $user = $session->get('user');
+        if (!$session->get('isLoggedIn') || !$user) {
+            return $this->response->setStatusCode(401)->setJSON(['error' => 'Unauthorized']);
+        }
+        $role = $user['role'] ?? null;
+        if (!in_array($role, ['admin', 'petugas', 'anggota_petugas'], true)) {
+            return $this->response->setStatusCode(403)->setJSON(['error' => 'Forbidden']);
+        }
+        $db = \Config\Database::connect();
+        $rows = $db
+            ->table('users u')
+            ->select('u.id_user,u.username,u.role,u.status,u.foto,p.nama_petugas,p.level')
+            ->join('petugas p', 'p.id_petugas = u.id_petugas', 'left')
+            ->whereIn('u.role', ['admin', 'petugas'])
+            ->orderBy('u.role', 'asc')
+            ->orderBy('p.level', 'asc')
+            ->get()
+            ->getResultArray();
+        return $this->response->setJSON(['data' => $rows]);
+    }
+
+    public function settingAdminAdd()
+    {
+        $session = session();
+        $user = $session->get('user');
+        if (!$session->get('isLoggedIn') || !$user) {
+            return redirect()->to('/login');
+        }
+        $role = $user['role'] ?? null;
+        if ($role !== 'admin') {
+            return redirect()->to('/admin/setting/admin-data');
+        }
+        $content = view('admin/setting/addadmin');
+        return view('admin/layout', [
+            'content' => $content,
+            'title' => 'Tambah Admin',
+        ]);
+    }
+
+    public function settingAdminEdit(int $id)
+    {
+        $session = session();
+        $user = $session->get('user');
+        if (!$session->get('isLoggedIn') || !$user) {
+            return redirect()->to('/login');
+        }
+        $role = (string) ($user['role'] ?? '');
+        if (!in_array($role, ['admin', 'petugas'], true)) {
+            return redirect()->to('/login');
+        }
+        $idUser = (int) ($user['id_user'] ?? 0);
+        if ($role === 'petugas' && $idUser !== (int) $id) {
+            return redirect()->to('/admin/setting/admin-data');
+        }
+        $db = \Config\Database::connect();
+        $u = $db
+            ->table('users u')
+            ->select('u.id_user,u.username,u.role,u.status,u.foto,u.id_petugas,p.nama_petugas,p.level')
+            ->join('petugas p', 'p.id_petugas = u.id_petugas', 'left')
+            ->where('u.id_user', (int) $id)
+            ->get()
+            ->getRowArray();
+        if (!$u) {
+            return redirect()->to('/admin/setting/admin-data');
+        }
+        $content = view('admin/setting/editadmin', ['userRow' => $u]);
+        return view('admin/layout', [
+            'content' => $content,
+            'title' => 'Edit Admin/Petugas',
+        ]);
+    }
+
+    public function createAdmin()
+    {
+        $session = session();
+        $user = $session->get('user');
+        if (!$session->get('isLoggedIn') || !$user) {
+            return redirect()->to('/login');
+        }
+        $role = (string) ($user['role'] ?? '');
+        if ($role !== 'admin') {
+            return redirect()->to('/admin/setting/admin-data');
+        }
+        $db = \Config\Database::connect();
+        $username = trim((string) ($this->request->getPost('username') ?? ''));
+        $userRole = trim((string) ($this->request->getPost('role') ?? 'petugas'));
+        $status = trim((string) ($this->request->getPost('status') ?? 'aktif'));
+        $namaPetugas = trim((string) ($this->request->getPost('nama_petugas') ?? ''));
+        $password = (string) ($this->request->getPost('password') ?? '');
+        $passwordConfirm = (string) ($this->request->getPost('password_confirm') ?? '');
+        if ($username === '' || $password === '' || $passwordConfirm === '' || $password !== $passwordConfirm) {
+            return redirect()->back()->with('error', 'Username dan password wajib serta harus cocok');
+        }
+        try {
+            $exists = $db->table('users')->where('username', $username)->get()->getRowArray();
+            if ($exists) {
+                return redirect()->back()->with('error', 'Username sudah digunakan');
+            }
+            $fotoPath = null;
+            $fotoBase64 = (string) ($this->request->getPost('foto_cropped') ?? '');
+            $fotoFile = $this->request->getFile('foto');
+            $uploadDir = FCPATH . 'uploads/admin';
+            if (!is_dir($uploadDir)) {
+                @mkdir($uploadDir, 0777, true);
+            }
+            if ($fotoBase64 !== '' && preg_match('#^data:image/\w+;base64,#', $fotoBase64)) {
+                $fname = 'foto_' . time() . '_' . bin2hex(random_bytes(4)) . '.webp';
+                $path = $uploadDir . DIRECTORY_SEPARATOR . $fname;
+                $dataUri = substr($fotoBase64, strpos($fotoBase64, ',') + 1);
+                $bin = base64_decode($dataUri);
+                file_put_contents($path, $bin);
+                $img = \Config\Services::image();
+                $img->withFile($path)->resize(500, 500, true)->save($path, 80);
+                $fotoPath = '/uploads/admin/' . $fname;
+            } elseif ($fotoFile && $fotoFile->isValid() && !$fotoFile->hasMoved()) {
+                if ($fotoFile->getSize() > 2 * 1024 * 1024) {
+                    return redirect()->back()->with('error', 'Ukuran foto maksimal 2MB');
+                }
+                $ext = $fotoFile->getClientExtension();
+                $tmp = 'tmp_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+                $fotoFile->move($uploadDir, $tmp);
+                $tmpPath = $uploadDir . DIRECTORY_SEPARATOR . $tmp;
+                $fname = 'foto_' . time() . '_' . bin2hex(random_bytes(4)) . '.webp';
+                $path = $uploadDir . DIRECTORY_SEPARATOR . $fname;
+                $img = \Config\Services::image();
+                $img->withFile($tmpPath)->resize(500, 500, true)->save($path, 80);
+                @unlink($tmpPath);
+                $fotoPath = '/uploads/admin/' . $fname;
+            }
+            $idPetugas = null;
+            if ($namaPetugas !== '') {
+                $db->table('petugas')->insert(['nama_petugas' => $namaPetugas, 'level' => 'kasir']);
+                $idPetugas = $db->insertID();
+            }
+            $db->table('users')->insert([
+                'username' => $username,
+                'password_hash' => password_hash($password, PASSWORD_DEFAULT),
+                'role' => in_array($userRole, ['admin', 'petugas'], true) ? $userRole : 'petugas',
+                'id_petugas' => $idPetugas,
+                'status' => in_array($status, ['aktif', 'nonaktif'], true) ? $status : 'aktif',
+                'foto' => $fotoPath,
+            ]);
+            return redirect()->to('/admin/setting/admin-data')->with('message', 'Admin/Petugas berhasil ditambahkan');
+        } catch (\Throwable $e) {
+            return redirect()->back()->with('error', 'Gagal menambahkan admin/petugas: ' . $e->getMessage());
+        }
+    }
+
+    public function updateAdmin(int $id)
+    {
+        $session = session();
+        $user = $session->get('user');
+        if (!$session->get('isLoggedIn') || !$user) {
+            return redirect()->to('/login');
+        }
+        $role = (string) ($user['role'] ?? '');
+        $idUser = (int) ($user['id_user'] ?? 0);
+        if (!in_array($role, ['admin', 'petugas'], true)) {
+            return redirect()->to('/login');
+        }
+        if ($role === 'petugas' && $idUser !== (int) $id) {
+            return redirect()->to('/admin/setting/admin-data');
+        }
+        $db = \Config\Database::connect();
+        try {
+            $row = $db->table('users')->where('id_user', (int) $id)->get()->getRowArray();
+            if (!$row) {
+                return redirect()->to('/admin/setting/admin-data')->with('error', 'User tidak ditemukan');
+            }
+            $username = trim((string) ($this->request->getPost('username') ?? ''));
+            $userRole = trim((string) ($this->request->getPost('role') ?? ''));
+            $status = trim((string) ($this->request->getPost('status') ?? ''));
+            $namaPetugas = trim((string) ($this->request->getPost('nama_petugas') ?? ''));
+            $newPass = (string) ($this->request->getPost('new_password') ?? '');
+            $newPass2 = (string) ($this->request->getPost('new_password_confirm') ?? '');
+            $update = [];
+            if ($username !== '') {
+                $update['username'] = $username;
+            }
+            if ($role === 'admin' && in_array($userRole, ['admin', 'petugas'], true)) {
+                $update['role'] = $userRole;
+            }
+            if ($role === 'admin' && in_array($status, ['aktif', 'nonaktif'], true)) {
+                $update['status'] = $status;
+            }
+            if ($newPass !== '') {
+                if ($newPass !== $newPass2 || strlen($newPass) < 8) {
+                    return redirect()->back()->with('error', 'Password baru tidak valid atau tidak cocok');
+                }
+                $update['password_hash'] = password_hash($newPass, PASSWORD_DEFAULT);
+            }
+            $fotoPath = null;
+            $fotoBase64 = (string) ($this->request->getPost('foto_cropped') ?? '');
+            $fotoFile = $this->request->getFile('foto');
+            $uploadDir = FCPATH . 'uploads/admin';
+            if (!is_dir($uploadDir)) {
+                @mkdir($uploadDir, 0777, true);
+            }
+            if ($fotoBase64 !== '' && preg_match('#^data:image/\w+;base64,#', $fotoBase64)) {
+                $fname = 'foto_' . time() . '_' . bin2hex(random_bytes(4)) . '.webp';
+                $path = $uploadDir . DIRECTORY_SEPARATOR . $fname;
+                $dataUri = substr($fotoBase64, strpos($fotoBase64, ',') + 1);
+                $bin = base64_decode($dataUri);
+                file_put_contents($path, $bin);
+                $img = \Config\Services::image();
+                $img->withFile($path)->resize(500, 500, true)->save($path, 80);
+                $fotoPath = '/uploads/admin/' . $fname;
+            } elseif ($fotoFile && $fotoFile->isValid() && !$fotoFile->hasMoved()) {
+                if ($fotoFile->getSize() > 2 * 1024 * 1024) {
+                    return redirect()->back()->with('error', 'Ukuran foto maksimal 2MB');
+                }
+                $ext = $fotoFile->getClientExtension();
+                $tmp = 'tmp_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+                $fotoFile->move($uploadDir, $tmp);
+                $tmpPath = $uploadDir . DIRECTORY_SEPARATOR . $tmp;
+                $fname = 'foto_' . time() . '_' . bin2hex(random_bytes(4)) . '.webp';
+                $path = $uploadDir . DIRECTORY_SEPARATOR . $fname;
+                $img = \Config\Services::image();
+                $img->withFile($tmpPath)->resize(500, 500, true)->save($path, 80);
+                @unlink($tmpPath);
+                $fotoPath = '/uploads/admin/' . $fname;
+            }
+            if ($fotoPath) {
+                $update['foto'] = $fotoPath;
+            }
+            if (!empty($update)) {
+                $db->table('users')->where('id_user', (int) $id)->update($update);
+            }
+            if ($namaPetugas !== '') {
+                $idPetugas = (int) ($row['id_petugas'] ?? 0);
+                if ($idPetugas > 0) {
+                    $db->table('petugas')->where('id_petugas', $idPetugas)->update(['nama_petugas' => $namaPetugas]);
+                } else {
+                    $db->table('petugas')->insert(['nama_petugas' => $namaPetugas, 'level' => 'kasir']);
+                    $db->table('users')->where('id_user', (int) $id)->update(['id_petugas' => $db->insertID()]);
+                }
+            }
+            return redirect()->to('/admin/setting/admin-data')->with('message', 'Admin/Petugas diperbarui');
+        } catch (\Throwable $e) {
+            return redirect()->back()->with('error', 'Gagal memperbarui admin/petugas: ' . $e->getMessage());
+        }
+    }
+
+    public function deleteAdmin(int $id)
+    {
+        $session = session();
+        $user = $session->get('user');
+        if (!$session->get('isLoggedIn') || !$user) {
+            return $this->response->setStatusCode(401)->setJSON(['error' => 'Unauthorized']);
+        }
+        $role = (string) ($user['role'] ?? '');
+        $idUser = (int) ($user['id_user'] ?? 0);
+        if ($role !== 'admin') {
+            return $this->response->setStatusCode(403)->setJSON(['error' => 'Forbidden']);
+        }
+        if ($idUser === (int) $id) {
+            return $this->response->setStatusCode(400)->setJSON(['error' => 'Tidak bisa menghapus akun sendiri']);
+        }
+        $db = \Config\Database::connect();
+        try {
+            $exists = $db->table('users')->select('id_user')->where('id_user', (int) $id)->get()->getRowArray();
+            if (!$exists) {
+                return $this->response->setStatusCode(404)->setJSON(['error' => 'User tidak ditemukan']);
+            }
+            $db->table('users')->where('id_user', (int) $id)->delete();
+            return $this->response->setJSON(['ok' => true]);
+        } catch (\Throwable $e) {
+            return $this->response->setStatusCode(500)->setJSON(['error' => 'Gagal menghapus: ' . $e->getMessage()]);
+        }
+    }
+
     public function apiSimpananConfig()
     {
         $session = session();

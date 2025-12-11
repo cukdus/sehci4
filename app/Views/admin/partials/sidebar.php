@@ -30,7 +30,7 @@
             >
               
               <li class="nav-item">
-                <a href="#" class="nav-link">
+                <a href="/admin" class="nav-link">
                   <i class="nav-icon bi bi-speedometer"></i>
                   <p>Dashboard</p>
                 </a>
@@ -109,7 +109,13 @@
                   </p>
                 </a>
                 <ul class="nav nav-treeview">
-                  <li class="nav-item">
+                <li class="nav-item">
+                    <a href="/admin/setting/admin-data" class="nav-link">
+                      <i class="nav-icon bi bi-circle"></i>
+                      <p>Admin Data</p>
+                    </a>
+                  </li>  
+                <li class="nav-item">
                     <a href="/admin/setting/waha" class="nav-link">
                       <i class="nav-icon bi bi-circle"></i>
                       <p>WAHA Template</p>
