@@ -128,7 +128,7 @@ class CreateKopsehSchema extends Migration
             PRIMARY KEY (id),
             UNIQUE KEY token (token),
             KEY id_user (id_user)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci');
+        ) ENGINE=InnoDB DEFAULT CHARSET=armscii8 COLLATE=armscii8_general_ci');
 
         $this->db->query('CREATE TABLE IF NOT EXISTS waha_templates (
             id INT(10) UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -137,7 +137,7 @@ class CreateKopsehSchema extends Migration
             updated_at TIMESTAMP NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
             PRIMARY KEY (id),
             UNIQUE KEY slug (slug)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci');
+        ) ENGINE=InnoDB DEFAULT CHARSET=armscii8 COLLATE=armscii8_general_ci');
 
         $this->db->query('CREATE TABLE IF NOT EXISTS auth_activation_attempts (
             id INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -146,28 +146,28 @@ class CreateKopsehSchema extends Migration
             token VARCHAR(255) DEFAULT NULL,
             created_at DATETIME NOT NULL,
             PRIMARY KEY (id)
-        ) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci');
+        ) ENGINE=MyISAM DEFAULT CHARSET=armscii8 COLLATE=armscii8_general_ci');
 
         $this->db->query('CREATE TABLE IF NOT EXISTS auth_groups (
             id INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
             name VARCHAR(255) NOT NULL,
             description VARCHAR(255) NOT NULL,
             PRIMARY KEY (id)
-        ) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci');
+        ) ENGINE=MyISAM DEFAULT CHARSET=armscii8 COLLATE=armscii8_general_ci');
 
         $this->db->query('CREATE TABLE IF NOT EXISTS auth_groups_permissions (
             group_id INT(11) UNSIGNED NOT NULL DEFAULT 0,
             permission_id INT(11) UNSIGNED NOT NULL DEFAULT 0,
             KEY auth_groups_permissions_permission_id_foreign (permission_id),
             KEY group_id_permission_id (group_id,permission_id)
-        ) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci');
+        ) ENGINE=MyISAM DEFAULT CHARSET=armscii8 COLLATE=armscii8_general_ci');
 
         $this->db->query('CREATE TABLE IF NOT EXISTS auth_groups_users (
             group_id INT(11) UNSIGNED NOT NULL DEFAULT 0,
             user_id INT(11) UNSIGNED NOT NULL DEFAULT 0,
             KEY auth_groups_users_user_id_foreign (user_id),
             KEY group_id_user_id (group_id,user_id)
-        ) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci');
+        ) ENGINE=MyISAM DEFAULT CHARSET=armscii8 COLLATE=armscii8_general_ci');
 
         $this->db->query('CREATE TABLE IF NOT EXISTS auth_logins (
             id INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -179,7 +179,7 @@ class CreateKopsehSchema extends Migration
             PRIMARY KEY (id),
             KEY email (email(250)),
             KEY user_id (user_id)
-        ) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci');
+        ) ENGINE=MyISAM DEFAULT CHARSET=armscii8 COLLATE=armscii8_general_ci');
 
         $this->db->query('CREATE TABLE IF NOT EXISTS auth_permissions (
             id INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
