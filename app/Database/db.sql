@@ -3,8 +3,8 @@
 -- Versi FINAL (Login Gabungan + Dashboard Dipisah)
 -- ============================================================
 
-CREATE DATABASE IF NOT EXISTS koperasi_simpan_pinjam;
-USE koperasi_simpan_pinjam;
+CREATE DATABASE IF NOT EXISTS seh;
+USE seh;
 
 -- ============================================================
 -- TABEL: ANGGOTA
