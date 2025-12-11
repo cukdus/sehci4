@@ -34,7 +34,7 @@ RUN if command -v composer >/dev/null 2>&1; then \
     fi
 
 # Ensure writable directories for CodeIgniter (guard if missing)
-RUN mkdir -p public/uploads writable \
+RUN mkdir -p public/uploads writable writable/cache writable/logs writable/session writable/debugbar \
     && chown -R www-data:www-data /var/www/html/public/uploads \
     && if [ -d /var/www/html/writable ]; then \
          chown -R www-data:www-data /var/www/html/writable && \
