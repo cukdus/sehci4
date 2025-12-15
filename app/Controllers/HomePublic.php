@@ -283,7 +283,13 @@ class HomePublic extends Controller
             $session->setFlashdata('message', 'Pendaftaran berhasil. Link aktivasi telah dikirim ke WhatsApp: ' . $phone);
             return redirect()->to('/register');
         } catch (\Throwable $e) {
-            $session->setFlashdata('error', 'Gagal mendaftar: ' . $e->getMessage());
+            $m = (string) $e->getMessage();
+            $lower = strtolower($m);
+            if (str_contains($lower, 'duplicate entry') && str_contains($lower, 'email')) {
+                $session->setFlashdata('error', 'Email sudah terdaftar');
+            } else {
+                $session->setFlashdata('error', 'Gagal mendaftar: ' . $m);
+            }
             return redirect()->back()->withInput();
         }
     }
