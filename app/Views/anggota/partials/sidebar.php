@@ -72,6 +72,13 @@
                   </li>
                 </ul>
               </li>
+              <li class="nav-header">Pinjaman</li>
+              <li class="nav-item">
+                <a href="/anggota/pinjaman" class="nav-link">
+                  <i class="nav-icon bi bi-star-half"></i>
+                  <p>Data Pinjaman</p>
+                </a>
+              </li>
               <li class="nav-header">Transaksi</li>
               <li class="nav-item">
                 <a href="/anggota/transaksi" class="nav-link">

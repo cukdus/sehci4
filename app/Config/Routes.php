@@ -48,6 +48,10 @@ $routes->get('anggota/simpanan/data', 'Anggota::dataSimpanan');
 $routes->get('anggota/api/simpanan/data', 'Anggota::apiSimpananData');
 $routes->get('anggota/api/simpanan/summary', 'Anggota::apiSimpananSummary');
 $routes->get('anggota/api/pinjaman', 'Anggota::apiPinjamanData');
+// Anggota Pinjaman
+$routes->get('anggota/pinjaman', 'Anggota::pinjaman');
+$routes->get('anggota/pinjaman/ajukan', 'Anggota::pinjamanAjukan');
+$routes->post('anggota/pinjaman/ajukan', 'Anggota::pinjamanAjukanSubmit');
 $routes->post('anggota/simpanan/wajib/tambah', 'Anggota::tambahWajib');
 $routes->get('anggota/api/simpanan/wajib', 'Anggota::apiSimpananWajib');
 $routes->get('anggota/api/simpanan/sukarela', 'Anggota::apiSimpananSukarela');

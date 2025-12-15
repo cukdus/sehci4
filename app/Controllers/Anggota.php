@@ -724,8 +724,6 @@ class Anggota extends Controller
         }
         $idAnggota = (int) ($user['id_anggota'] ?? 0);
         $page = max(1, (int) ($this->request->getGet('page') ?? 1));
-        $perPage = 25;
-        $offset = ($page - 1) * $perPage;
         $db = \Config\Database::connect();
         $totalItems = 0;
         $sumAll = 0.0;
@@ -736,6 +734,21 @@ class Anggota extends Controller
                 $totalItems = (int) $db->table('pinjaman')->where('id_anggota', $idAnggota)->countAllResults();
                 $sumRow = $db->table('pinjaman')->selectSum('jumlah_pinjaman')->where('id_anggota', $idAnggota)->get()->getRowArray();
                 $sumAll = (float) ($sumRow['jumlah_pinjaman'] ?? 0);
+                $reqPer = $this->request->getGet('perPage');
+                $all = $this->request->getGet('all');
+                $perPage = 25;
+                if (is_string($reqPer)) {
+                    if (strtolower($reqPer) === 'all') {
+                        $perPage = $totalItems > 0 ? $totalItems : 1000000;
+                    } else {
+                        $n = (int) $reqPer;
+                        $perPage = $n > 0 ? $n : 25;
+                    }
+                } elseif (!empty($all)) {
+                    $perPage = $totalItems > 0 ? $totalItems : 1000000;
+                    $page = 1;
+                }
+                $offset = ($page - 1) * $perPage;
                 $rows = $db
                     ->table('pinjaman')
                     ->select('id_pinjaman, tanggal_pinjam, jumlah_pinjaman, status')
@@ -755,7 +768,7 @@ class Anggota extends Controller
             'data' => $rows,
             'meta' => [
                 'page' => $page,
-                'perPage' => $perPage,
+                'perPage' => isset($perPage) ? $perPage : 25,
                 'totalItems' => $totalItems,
                 'totalPages' => (int) ceil(($totalItems ?: 0) / $perPage),
                 'sumAll' => $sumAll,
@@ -916,5 +929,128 @@ class Anggota extends Controller
             return redirect()->to('/anggota/simpanan/wajib')->with('success', 'Simpanan wajib berhasil ditambahkan.');
         }
         return redirect()->to('/anggota/simpanan/wajib')->with('error', 'Gagal menyimpan.');
+    }
+
+    public function pinjaman()
+    {
+        $session = session();
+        $user = $session->get('user');
+        if (!$session->get('isLoggedIn') || !$user) {
+            return redirect()->to('/login');
+        }
+        $role = $user['role'] ?? null;
+        if (!in_array($role, ['anggota', 'anggota_petugas'], true)) {
+            return redirect()->to('/login');
+        }
+        $content = view('anggota/pinjaman/data');
+        return view('anggota/layout', [
+            'content' => $content,
+            'title' => 'Data Pinjaman',
+        ]);
+    }
+
+    public function pinjamanAjukan()
+    {
+        $session = session();
+        $user = $session->get('user');
+        if (!$session->get('isLoggedIn') || !$user) {
+            return redirect()->to('/login');
+        }
+        $role = $user['role'] ?? null;
+        if (!in_array($role, ['anggota', 'anggota_petugas'], true)) {
+            return redirect()->to('/login');
+        }
+        $content = view('anggota/pinjaman/ajukan');
+        return view('anggota/layout', [
+            'content' => $content,
+            'title' => 'Ajukan Pinjaman',
+        ]);
+    }
+
+    public function pinjamanAjukanSubmit()
+    {
+        $session = session();
+        $user = $session->get('user');
+        if (!$session->get('isLoggedIn') || !$user) {
+            return redirect()->to('/login');
+        }
+        $role = $user['role'] ?? null;
+        if (!in_array($role, ['anggota', 'anggota_petugas'], true)) {
+            return redirect()->to('/login');
+        }
+        if (strtolower($this->request->getMethod()) !== 'post') {
+            return redirect()->to('/anggota/pinjaman/ajukan');
+        }
+        $idAnggota = (int) ($user['id_anggota'] ?? 0);
+        if ($idAnggota <= 0) {
+            $idUser = (int) ($user['id_user'] ?? 0);
+            if ($idUser > 0) {
+                try {
+                    $db = \Config\Database::connect();
+                    $u = $db->table('users')->select('id_anggota')->where('id_user', $idUser)->get()->getRowArray();
+                    if (!empty($u['id_anggota'])) {
+                        $idAnggota = (int) $u['id_anggota'];
+                        $user['id_anggota'] = $idAnggota;
+                        $session->set('user', $user);
+                    }
+                } catch (\Throwable $e) {
+                }
+            }
+        }
+        if ($idAnggota <= 0) {
+            return redirect()->to('/anggota/pinjaman/ajukan')->with('error', 'Akun tidak terkait data anggota.');
+        }
+        $jumlahRaw = trim((string) ($this->request->getPost('jumlah_pinjaman') ?? '0'));
+        $jumlah = str_replace([',', ' '], ['', ''], $jumlahRaw);
+        if ($jumlah === '' || !is_numeric($jumlah)) {
+            $jumlah = '0';
+        }
+        $bungaRaw = trim((string) ($this->request->getPost('bunga') ?? '0'));
+        $bunga = str_replace([',', ' '], ['', ''], $bungaRaw);
+        if ($bunga === '' || !is_numeric($bunga)) {
+            $bunga = '0';
+        }
+        $jangka = (int) ($this->request->getPost('jangka_waktu') ?? 0);
+        $keterangan = trim((string) ($this->request->getPost('keterangan') ?? ''));
+        $jaminan = trim((string) ($this->request->getPost('jaminan') ?? ''));
+        if ((float) $jumlah <= 0 || (float) $bunga < 0 || $jangka <= 0) {
+            return redirect()->to('/anggota/pinjaman/ajukan')->with('error', 'Jumlah, bunga, dan jangka waktu wajib diisi.');
+        }
+        $db = \Config\Database::connect();
+        try {
+            $fields = $db->getFieldNames('pinjaman');
+        } catch (\Throwable $e) {
+            $fields = ['id_anggota', 'jumlah_pinjaman', 'bunga', 'tanggal_pinjam', 'jangka_waktu', 'status', 'keterangan', 'jaminan'];
+        }
+        $dataInsert = [
+            'id_anggota' => $idAnggota,
+            'jumlah_pinjaman' => number_format((float) $jumlah, 2, '.', ''),
+            'bunga' => number_format((float) $bunga, 2, '.', ''),
+            'tanggal_pinjam' => null,
+            'jangka_waktu' => $jangka,
+            'status' => 'proses',
+            'keterangan' => $keterangan !== '' ? $keterangan : null,
+            'jaminan' => $jaminan !== '' ? $jaminan : null,
+        ];
+        $allowed = array_flip($fields);
+        $dataFiltered = array_intersect_key($dataInsert, $allowed);
+        $ok = false;
+        try {
+            $ok = $db->table('pinjaman')->insert($dataFiltered);
+        } catch (\Throwable $e) {
+            $ok = false;
+            $msg = 'Gagal menyimpan pinjaman.';
+            $err = $db->error();
+            if (!empty($err['message'])) {
+                $msg .= ' ' . $err['message'];
+            } else {
+                $msg .= ' ' . $e->getMessage();
+            }
+            return redirect()->to('/anggota/pinjaman/ajukan')->with('error', $msg)->withInput();
+        }
+        if ($ok) {
+            return redirect()->to('/anggota/pinjaman')->with('success', 'Pengajuan pinjaman berhasil disimpan.');
+        }
+        return redirect()->to('/anggota/pinjaman/ajukan')->with('error', 'Gagal menyimpan pinjaman.');
     }
 }
