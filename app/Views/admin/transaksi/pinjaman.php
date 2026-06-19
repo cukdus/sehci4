@@ -26,7 +26,7 @@
                   <th class="sortable">Jumlah Pinjaman</th>
                   <th class="sortable">Bunga (%)</th>
                   <th class="sortable">Tanggal Pinjam</th>
-                  <th class="sortable">Jangka Waktu (bulan)</th>
+                  <th class="sortable">Jangka Waktu</th>
                   <th>Aksi</th>
                 </tr>
               </thead>
@@ -73,7 +73,7 @@
                   <th class="sortable">Jumlah Pinjaman</th>
                   <th class="sortable">Bunga (%)</th>
                   <th class="sortable">Tanggal Pinjam</th>
-                  <th class="sortable">Jangka Waktu (bulan)</th>
+                  <th class="sortable">Jangka Waktu</th>
                   <th class="sortable">Status</th>
                 </tr>
               </thead>

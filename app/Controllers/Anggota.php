@@ -960,6 +960,31 @@ class Anggota extends Controller
         if (!in_array($role, ['anggota', 'anggota_petugas'], true)) {
             return redirect()->to('/login');
         }
+        $idAnggota = (int) ($user['id_anggota'] ?? 0);
+        if ($idAnggota <= 0) {
+            $idUser = (int) ($user['id_user'] ?? 0);
+            if ($idUser > 0) {
+                try {
+                    $db = \Config\Database::connect();
+                    $u = $db->table('users')->select('id_anggota')->where('id_user', $idUser)->get()->getRowArray();
+                    if (!empty($u['id_anggota'])) {
+                        $idAnggota = (int) $u['id_anggota'];
+                        $user['id_anggota'] = $idAnggota;
+                        $session->set('user', $user);
+                    }
+                } catch (\Throwable $e) {
+                }
+            }
+        }
+        if ($idAnggota <= 0) {
+            return redirect()->to('/anggota/pinjaman')->with('error', 'Akun tidak terkait data anggota.');
+        }
+        $db = \Config\Database::connect();
+        $ang = $db->table('anggota')->select('no_anggota')->where('id_anggota', $idAnggota)->get()->getRowArray();
+        $noAng = trim((string) ($ang['no_anggota'] ?? ''));
+        if ($noAng === '') {
+            return redirect()->to('/anggota/pinjaman')->with('error', 'Proses pengajuan pinjaman membutuhkan validasi keanggotaan koperasi. Lengkapi data anda!');
+        }
         $content = view('anggota/pinjaman/ajukan');
         return view('anggota/layout', [
             'content' => $content,
@@ -999,6 +1024,16 @@ class Anggota extends Controller
         }
         if ($idAnggota <= 0) {
             return redirect()->to('/anggota/pinjaman/ajukan')->with('error', 'Akun tidak terkait data anggota.');
+        }
+        try {
+            $db = \Config\Database::connect();
+            $ang = $db->table('anggota')->select('no_anggota')->where('id_anggota', $idAnggota)->get()->getRowArray();
+            $noAng = trim((string) ($ang['no_anggota'] ?? ''));
+            if ($noAng === '') {
+                return redirect()->to('/anggota/pinjaman/ajukan')->with('error', 'Nomor anggota belum tersedia. Hubungi petugas/admin untuk verifikasi.');
+            }
+        } catch (\Throwable $e) {
+            return redirect()->to('/anggota/pinjaman/ajukan')->with('error', 'Validasi nomor anggota gagal: ' . $e->getMessage());
         }
         $jumlahRaw = trim((string) ($this->request->getPost('jumlah_pinjaman') ?? '0'));
         $jumlah = str_replace([',', ' '], ['', ''], $jumlahRaw);
