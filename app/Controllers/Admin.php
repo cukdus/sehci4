@@ -380,10 +380,30 @@ class Admin extends Controller
                 updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
         }
+        if (!in_array('settings', $tables, true)) {
+            $db->query('CREATE TABLE IF NOT EXISTS settings (
+                id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                `key` VARCHAR(100) NOT NULL UNIQUE,
+                value TEXT NULL,
+                updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+        }
         if (strtolower($this->request->getMethod()) === 'post') {
+            $reminderDay = (int) ($this->request->getPost('wajib_reminder_day') ?? 10);
+            $reminderStartTime = trim((string) ($this->request->getPost('wajib_reminder_start_time') ?? '08:00'));
+            if ($reminderDay < 1) {
+                $reminderDay = 1;
+            }
+            if ($reminderDay > 31) {
+                $reminderDay = 31;
+            }
+            if (!preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/', $reminderStartTime)) {
+                $reminderStartTime = '08:00';
+            }
             $items = [
                 ['slug' => 'register', 'content' => (string) $this->request->getPost('register')],
                 ['slug' => 'wajib', 'content' => (string) $this->request->getPost('wajib')],
+                ['slug' => 'wajib_reminder', 'content' => (string) $this->request->getPost('wajib_reminder')],
                 ['slug' => 'sukarela', 'content' => (string) $this->request->getPost('sukarela')],
                 ['slug' => 'forgot', 'content' => (string) $this->request->getPost('forgot')],
                 ['slug' => 'daftar', 'content' => (string) $this->request->getPost('daftar')],
@@ -397,12 +417,32 @@ class Admin extends Controller
                     $db->table('waha_templates')->insert($it);
                 }
             }
+            $settingExists = $db->table('settings')->where('key', 'wajib_reminder_day')->get()->getRowArray();
+            if ($settingExists) {
+                $db->table('settings')->where('key', 'wajib_reminder_day')->update(['value' => (string) $reminderDay]);
+            } else {
+                $db->table('settings')->insert(['key' => 'wajib_reminder_day', 'value' => (string) $reminderDay]);
+            }
+            $timeSettingExists = $db->table('settings')->where('key', 'wajib_reminder_start_time')->get()->getRowArray();
+            if ($timeSettingExists) {
+                $db->table('settings')->where('key', 'wajib_reminder_start_time')->update(['value' => $reminderStartTime]);
+            } else {
+                $db->table('settings')->insert(['key' => 'wajib_reminder_start_time', 'value' => $reminderStartTime]);
+            }
             return $this->response->setJSON(['ok' => true]);
         }
         $rows = $db->table('waha_templates')->get()->getResultArray();
-        $map = ['register' => '', 'wajib' => '', 'sukarela' => '', 'forgot' => '', 'daftar' => '', 'status_anggota' => ''];
+        $map = ['register' => '', 'wajib' => '', 'wajib_reminder' => '', 'sukarela' => '', 'forgot' => '', 'daftar' => '', 'status_anggota' => '', 'wajib_reminder_day' => '10', 'wajib_reminder_start_time' => '08:00'];
         foreach ($rows as $r) {
             $map[$r['slug']] = (string) ($r['content'] ?? '');
+        }
+        $settingRow = $db->table('settings')->where('key', 'wajib_reminder_day')->get()->getRowArray();
+        if ($settingRow) {
+            $map['wajib_reminder_day'] = (string) ($settingRow['value'] ?? '10');
+        }
+        $timeSettingRow = $db->table('settings')->where('key', 'wajib_reminder_start_time')->get()->getRowArray();
+        if ($timeSettingRow) {
+            $map['wajib_reminder_start_time'] = (string) ($timeSettingRow['value'] ?? '08:00');
         }
         return $this->response->setJSON($map);
     }
