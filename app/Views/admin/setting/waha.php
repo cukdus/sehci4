@@ -10,6 +10,11 @@
     <div class="container-fluid">
       <div class="card card-outline card-secondary">
         <div class="card-body">
+          <div class="d-flex justify-content-end mb-3">
+            <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#broadcastModal">
+              Kirim Informasi ke Anggota Aktif
+            </button>
+          </div>
           <div class="alert alert-info">
             Pengingat simpanan wajib dikirim otomatis melalui command <code>php spark waha:send-wajib-reminders</code>. Jadwalkan command ini harian di cron atau Task Scheduler agar sistem mengirim pada tanggal dan jam yang admin tentukan, dengan jeda 1 menit untuk setiap pesan.
           </div>
@@ -65,12 +70,79 @@
           </form>
         </div>
       </div>
+      <div class="card card-outline card-secondary mt-4">
+        <div class="card-header">
+          <h5 class="card-title mb-0">Riwayat Broadcast WhatsApp</h5>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-bordered table-striped align-middle mb-0">
+              <thead>
+                <tr>
+                  <th style="width: 140px;">Waktu</th>
+                  <th style="width: 160px;">Pengirim</th>
+                  <th style="width: 180px;">Judul</th>
+                  <th>Pesan</th>
+                  <th style="width: 80px;">Target</th>
+                  <th style="width: 80px;">Kirim</th>
+                  <th style="width: 80px;">Gagal</th>
+                  <th style="width: 80px;">Lewat</th>
+                  <th style="width: 100px;">Status</th>
+                  <th style="width: 90px;">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="broadcastHistoryBody">
+                <tr>
+                  <td colspan="10" class="text-center text-muted">Memuat riwayat broadcast...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </main>
+
+<div class="modal fade" id="broadcastModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Kirim Informasi WhatsApp</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form id="broadcastForm">
+        <div class="modal-body">
+          <div id="broadcastAlert"></div>
+          <div class="mb-3">
+            <label class="form-label">Judul Informasi</label>
+            <input type="text" class="form-control" id="broadcastTitle" name="title" placeholder="Contoh: Informasi Kegiatan Koperasi">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Isi Pesan</label>
+            <textarea class="form-control" id="broadcastMessage" name="message" rows="6" placeholder="Tulis berita atau informasi yang ingin dikirim ke semua anggota aktif."></textarea>
+            <small class="text-muted">Variabel yang bisa dipakai: {{nama}}, {{no_anggota}}, {{status}}</small>
+          </div>
+          <div class="alert alert-warning mb-0">
+            Pesan ini akan dikirim manual ke semua anggota dengan status aktif yang memiliki nomor telepon. Sistem memberi jeda 1 menit untuk setiap pesan yang benar-benar dikirim.
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-success" id="broadcastSubmit">Kirim Pesan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 <script>
   (function(){
     const f = document.getElementById('formWaha');
+    const bf = document.getElementById('broadcastForm');
+    const ba = document.getElementById('broadcastAlert');
+    const bs = document.getElementById('broadcastSubmit');
+    const bh = document.getElementById('broadcastHistoryBody');
     const rd = document.getElementById('wajibReminderDay');
     const rt = document.getElementById('wajibReminderStartTime');
     const wr = document.getElementById('tplWajibReminder');
@@ -80,12 +152,58 @@
     const s = document.getElementById('tplSukarela');
     const fg = document.getElementById('tplForgot');
     const sta = document.getElementById('tplStatusAnggota');
+    function escHtml(value) {
+      return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function loadBroadcastHistory() {
+      bh.innerHTML = '<tr><td colspan="10" class="text-center text-muted">Memuat riwayat broadcast...</td></tr>';
+      fetch('/admin/api/setting/waha/broadcast-history')
+        .then(async (x) => {
+          const j = await x.json();
+          if (!x.ok) throw j;
+          return j;
+        })
+        .then((j) => {
+          const items = Array.isArray(j.items) ? j.items : [];
+          if (!items.length) {
+            bh.innerHTML = '<tr><td colspan="10" class="text-center text-muted">Belum ada riwayat broadcast.</td></tr>';
+            return;
+          }
+          bh.innerHTML = items.map((item) => {
+            const message = escHtml(item.message || '');
+            const shortMessage = message.length > 160 ? message.slice(0, 160) + '...' : message;
+            return '<tr>'
+              + '<td>' + escHtml(item.created_at || '-') + '</td>'
+              + '<td>' + escHtml(item.created_by || '-') + '</td>'
+              + '<td>' + escHtml(item.title || '-') + '</td>'
+              + '<td title="' + message + '">' + shortMessage + '</td>'
+              + '<td>' + escHtml(item.total_target || 0) + '</td>'
+              + '<td>' + escHtml(item.sent_count || 0) + '</td>'
+              + '<td>' + escHtml(item.failed_count || 0) + '</td>'
+              + '<td>' + escHtml(item.skipped_count || 0) + '</td>'
+              + '<td>' + escHtml(item.status || '-') + '</td>'
+              + '<td><a href="/admin/setting/waha/broadcast/' + escHtml(item.id || '') + '" class="btn btn-sm btn-primary">Detail</a></td>'
+              + '</tr>';
+          }).join('');
+        })
+        .catch(() => {
+          bh.innerHTML = '<tr><td colspan="10" class="text-center text-danger">Gagal memuat riwayat broadcast.</td></tr>';
+        });
+    }
+
     fetch('/admin/api/setting/waha').then(x=>x.json()).then(j=>{
       rd.value = j.wajib_reminder_day || '10';
       rt.value = j.wajib_reminder_start_time || '08:00';
       wr.value = j.wajib_reminder || '';
       r.value = j.register||''; d.value = j.daftar||''; w.value = j.wajib||''; s.value = j.sukarela||''; fg.value = j.forgot||''; sta.value = j.status_anggota||'';
     });
+    loadBroadcastHistory();
     f.addEventListener('submit', function(e){
       e.preventDefault();
       const fd = new FormData(f);
@@ -97,6 +215,42 @@
         f.parentElement.insertBefore(alert, f);
         setTimeout(()=>{ alert.remove(); }, 3000);
       });
+    });
+
+    bf.addEventListener('submit', function(e){
+      e.preventDefault();
+      ba.innerHTML = '';
+      bs.disabled = true;
+      bs.textContent = 'Mengirim...';
+      const fd = new FormData(bf);
+      fetch('/admin/api/setting/waha/broadcast', { method:'POST', body: fd })
+        .then(async (x) => {
+          const j = await x.json();
+          if (!x.ok) throw j;
+          return j;
+        })
+        .then((j) => {
+          const lines = [
+            'Pesan berhasil diproses.',
+            'ID Broadcast: ' + (j.broadcast_id || '-'),
+            'Terkirim: ' + (j.sent || 0),
+            'Gagal: ' + (j.failed || 0),
+            'Dilewati: ' + (j.skipped || 0)
+          ];
+          if (Array.isArray(j.errors) && j.errors.length) {
+            lines.push('Contoh error: ' + j.errors.map(x => (x.nama || '-') + ' (' + (x.phone || '-') + ')').join(', '));
+          }
+          ba.innerHTML = '<div class="alert alert-success mb-0">' + lines.join('<br>') + '</div>';
+          loadBroadcastHistory();
+        })
+        .catch((err) => {
+          const msg = err && err.error ? err.error : 'Gagal mengirim pesan broadcast';
+          ba.innerHTML = '<div class="alert alert-danger mb-0">' + msg + '</div>';
+        })
+        .finally(() => {
+          bs.disabled = false;
+          bs.textContent = 'Kirim Pesan';
+        });
     });
   })();
 </script>

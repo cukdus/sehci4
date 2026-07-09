@@ -90,10 +90,12 @@
                     id="phone"
                     name="phone"
                     class="form-control"
-                    pattern="[0-9+\-() ]+"
+                    inputmode="numeric"
+                    pattern="0[0-9]+"
+                    maxlength="16"
                     required=""
                   />
-                  <div class="invalid-feedback">No. telepon wajib diisi</div>
+                  <div class="invalid-feedback">No. telepon wajib berupa angka dan harus diawali 0</div>
                 </div>
 
                 <div class="col-12">
@@ -128,10 +130,22 @@
                   const birthDate = document.getElementById('birthDate');
                   const email = document.getElementById('email');
                   const phone = document.getElementById('phone');
+                phone.addEventListener('input', function(){
+                  let value = this.value.replace(/\D+/g, '');
+                  if (value.startsWith('62')) {
+                    value = '0' + value.slice(2);
+                  }
+                  this.value = value;
+                });
                   const agree = document.getElementById('agree');
-                  [fullName, birthDate, email, phone].forEach(function(el){
+                  phone.addEventListener('input', function(){
                     el.classList.remove('is-invalid');
-                    if (!el.value || (el.type === 'email' && !el.checkValidity())) {
+                    el.classList.remove('is-invalid');
+                    if (
+                      !el.value ||
+                      (el.type === 'email' && !el.checkValidity()) ||
+                      (el === phone && !/^0\d+$/.test(phone.value))
+                    ) {
                       el.classList.add('is-invalid');
                       const label = el.previousElementSibling ? el.previousElementSibling.textContent.trim() : el.name;
                       missing.push(label);

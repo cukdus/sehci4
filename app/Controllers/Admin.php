@@ -359,6 +359,52 @@ class Admin extends Controller
         ]);
     }
 
+    public function settingWahaBroadcastDetail($id)
+    {
+        $session = session();
+        $user = $session->get('user');
+        if (!$session->get('isLoggedIn') || !$user) {
+            return redirect()->to('/login');
+        }
+        $role = $user['role'] ?? null;
+        if (!in_array($role, ['admin', 'petugas', 'anggota_petugas'], true)) {
+            return redirect()->to('/login');
+        }
+
+        $broadcastId = (int) $id;
+        if ($broadcastId <= 0) {
+            return redirect()->to('/admin/setting/waha')->with('error', 'ID broadcast tidak valid');
+        }
+
+        $db = \Config\Database::connect();
+        $this->ensureWahaBroadcastTables($db);
+
+        $broadcast = $db->table('waha_broadcasts')
+            ->where('id', $broadcastId)
+            ->get()
+            ->getRowArray();
+
+        if (!$broadcast) {
+            return redirect()->to('/admin/setting/waha')->with('error', 'Data broadcast tidak ditemukan');
+        }
+
+        $logs = $db->table('waha_broadcast_logs')
+            ->where('broadcast_id', $broadcastId)
+            ->orderBy('id', 'asc')
+            ->get()
+            ->getResultArray();
+
+        $content = view('admin/setting/waha_broadcast_detail', [
+            'broadcast' => $broadcast,
+            'logs' => $logs,
+        ]);
+
+        return view('admin/layout', [
+            'content' => $content,
+            'title' => 'Detail Broadcast WA',
+        ]);
+    }
+
     public function apiSettingWaha()
     {
         $session = session();
@@ -445,6 +491,221 @@ class Admin extends Controller
             $map['wajib_reminder_start_time'] = (string) ($timeSettingRow['value'] ?? '08:00');
         }
         return $this->response->setJSON($map);
+    }
+
+    public function apiWahaBroadcast()
+    {
+        $session = session();
+        $user = $session->get('user');
+        if (!$session->get('isLoggedIn') || !$user) {
+            return $this->response->setStatusCode(401)->setJSON(['error' => 'Unauthorized']);
+        }
+        $role = $user['role'] ?? null;
+        if (!in_array($role, ['admin', 'petugas', 'anggota_petugas'], true)) {
+            return $this->response->setStatusCode(403)->setJSON(['error' => 'Forbidden']);
+        }
+
+        $title = trim((string) ($this->request->getPost('title') ?? ''));
+        $message = trim((string) ($this->request->getPost('message') ?? ''));
+        if ($title === '' && $message === '') {
+            return $this->response->setStatusCode(400)->setJSON(['error' => 'Judul atau isi pesan wajib diisi']);
+        }
+
+        $db = \Config\Database::connect();
+        $this->ensureWahaBroadcastTables($db);
+        @set_time_limit(0);
+        $anggotaRows = $db->table('anggota')
+            ->select('id_anggota, no_anggota, nama, no_telepon, status')
+            ->where('status', 'aktif')
+            ->orderBy('nama', 'asc')
+            ->get()
+            ->getResultArray();
+
+        if ($anggotaRows === []) {
+            return $this->response->setStatusCode(404)->setJSON(['error' => 'Tidak ada anggota aktif']);
+        }
+
+        $broadcastId = 0;
+        $db->table('waha_broadcasts')->insert([
+            'title' => $title !== '' ? $title : null,
+            'message' => $message,
+            'created_by' => (string) ($user['username'] ?? $user['role'] ?? 'admin'),
+            'total_target' => count($anggotaRows),
+            'status' => 'processing',
+        ]);
+        $broadcastId = (int) $db->insertID();
+
+        $waha = service('waha');
+        $sent = 0;
+        $failed = 0;
+        $skipped = 0;
+        $errors = [];
+        $attemptedMessages = 0;
+
+        foreach ($anggotaRows as $anggota) {
+            $phone = $this->normalizeWahaPhone((string) ($anggota['no_telepon'] ?? ''));
+            if ($phone === '') {
+                $db->table('waha_broadcast_logs')->insert([
+                    'broadcast_id' => $broadcastId,
+                    'id_anggota' => (int) ($anggota['id_anggota'] ?? 0),
+                    'nama' => (string) ($anggota['nama'] ?? ''),
+                    'no_anggota' => (string) ($anggota['no_anggota'] ?? ''),
+                    'status' => 'skipped',
+                    'response_text' => 'Nomor telepon tidak tersedia atau tidak valid.',
+                ]);
+                $skipped++;
+                continue;
+            }
+
+            $body = str_replace(
+                ['{{nama}}', '{{no_anggota}}', '{{status}}'],
+                [
+                    (string) ($anggota['nama'] ?? ''),
+                    (string) ($anggota['no_anggota'] ?? ''),
+                    (string) ($anggota['status'] ?? 'aktif'),
+                ],
+                $message
+            );
+            $text = trim(($title !== '' ? '*' . $title . '*' . "\n\n" : '') . $body);
+
+            if ($attemptedMessages > 0) {
+                sleep(60);
+            }
+            $attemptedMessages++;
+
+            $result = $waha->sendText($phone, $text);
+            if (($result['ok'] ?? false) === true) {
+                $db->table('waha_broadcast_logs')->insert([
+                    'broadcast_id' => $broadcastId,
+                    'id_anggota' => (int) ($anggota['id_anggota'] ?? 0),
+                    'nama' => (string) ($anggota['nama'] ?? ''),
+                    'no_anggota' => (string) ($anggota['no_anggota'] ?? ''),
+                    'phone' => $phone,
+                    'status' => 'sent',
+                    'response_text' => (string) ($result['body'] ?? ''),
+                    'sent_at' => date('Y-m-d H:i:s'),
+                ]);
+                $sent++;
+                continue;
+            }
+
+            $failed++;
+            $errorText = (string) ($result['error'] ?? $result['body'] ?? 'Gagal mengirim pesan');
+            $db->table('waha_broadcast_logs')->insert([
+                'broadcast_id' => $broadcastId,
+                'id_anggota' => (int) ($anggota['id_anggota'] ?? 0),
+                'nama' => (string) ($anggota['nama'] ?? ''),
+                'no_anggota' => (string) ($anggota['no_anggota'] ?? ''),
+                'phone' => $phone,
+                'status' => 'failed',
+                'response_text' => $errorText,
+            ]);
+            if (count($errors) < 5) {
+                $errors[] = [
+                    'nama' => (string) ($anggota['nama'] ?? ''),
+                    'phone' => $phone,
+                    'error' => $errorText,
+                ];
+            }
+        }
+
+        $db->table('waha_broadcasts')->where('id', $broadcastId)->update([
+            'sent_count' => $sent,
+            'failed_count' => $failed,
+            'skipped_count' => $skipped,
+            'status' => 'finished',
+        ]);
+
+        return $this->response->setJSON([
+            'ok' => true,
+            'broadcast_id' => $broadcastId,
+            'total' => count($anggotaRows),
+            'sent' => $sent,
+            'failed' => $failed,
+            'skipped' => $skipped,
+            'errors' => $errors,
+        ]);
+    }
+
+    public function apiWahaBroadcastHistory()
+    {
+        $session = session();
+        $user = $session->get('user');
+        if (!$session->get('isLoggedIn') || !$user) {
+            return $this->response->setStatusCode(401)->setJSON(['error' => 'Unauthorized']);
+        }
+        $role = $user['role'] ?? null;
+        if (!in_array($role, ['admin', 'petugas', 'anggota_petugas'], true)) {
+            return $this->response->setStatusCode(403)->setJSON(['error' => 'Forbidden']);
+        }
+
+        $db = \Config\Database::connect();
+        $this->ensureWahaBroadcastTables($db);
+
+        $rows = $db->table('waha_broadcasts')
+            ->select('id, title, message, created_by, total_target, sent_count, failed_count, skipped_count, status, created_at')
+            ->orderBy('id', 'desc')
+            ->limit(20)
+            ->get()
+            ->getResultArray();
+
+        return $this->response->setJSON([
+            'ok' => true,
+            'items' => $rows,
+        ]);
+    }
+
+    private function ensureWahaBroadcastTables($db): void
+    {
+        $tables = $db->listTables();
+        if (!in_array('waha_broadcasts', $tables, true)) {
+            $db->query("CREATE TABLE IF NOT EXISTS waha_broadcasts (
+                id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                title VARCHAR(255) NULL,
+                message TEXT NULL,
+                created_by VARCHAR(100) NULL,
+                total_target INT UNSIGNED NOT NULL DEFAULT 0,
+                sent_count INT UNSIGNED NOT NULL DEFAULT 0,
+                failed_count INT UNSIGNED NOT NULL DEFAULT 0,
+                skipped_count INT UNSIGNED NOT NULL DEFAULT 0,
+                status VARCHAR(20) NOT NULL DEFAULT 'processing',
+                created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                KEY idx_status_created_at (status, created_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        }
+        if (!in_array('waha_broadcast_logs', $tables, true)) {
+            $db->query("CREATE TABLE IF NOT EXISTS waha_broadcast_logs (
+                id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                broadcast_id INT UNSIGNED NOT NULL,
+                id_anggota INT UNSIGNED NULL,
+                nama VARCHAR(255) NULL,
+                no_anggota VARCHAR(20) NULL,
+                phone VARCHAR(30) NULL,
+                status VARCHAR(20) NOT NULL DEFAULT 'pending',
+                response_text TEXT NULL,
+                sent_at DATETIME NULL,
+                created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+                KEY idx_broadcast_id_status (broadcast_id, status),
+                KEY idx_anggota (id_anggota)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        }
+    }
+
+    private function normalizeWahaPhone(string $phone): string
+    {
+        $digits = preg_replace('/\D+/', '', $phone) ?? '';
+        if ($digits === '') {
+            return '';
+        }
+        if (str_starts_with($digits, '0')) {
+            return '62' . substr($digits, 1);
+        }
+        if (str_starts_with($digits, '62')) {
+            return $digits;
+        }
+
+        return $digits;
     }
 
     public function settingAdminData()

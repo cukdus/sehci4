@@ -53,11 +53,15 @@ class HomePublic extends Controller
         $nama = trim((string) $request->getPost('fullName'));
         $tgl = trim((string) $request->getPost('birthDate'));
         $email = trim((string) $request->getPost('email'));
-        $phone = trim((string) $request->getPost('phone'));
+        $phone = preg_replace('/\D+/', '', trim((string) $request->getPost('phone'))) ?? '';
         $minBirth = strtotime('-18 years');
         $birthTs = strtotime($tgl);
         if ($birthTs === false || $birthTs > $minBirth) {
             $session->setFlashdata('error', 'Usia minimal 18 tahun dari tanggal daftar');
+            return redirect()->back()->withInput();
+        }
+        if (!preg_match('/^0\d+$/', $phone)) {
+            $session->setFlashdata('error', 'No. telepon harus berupa angka dan diawali 0, bukan 62');
             return redirect()->back()->withInput();
         }
         $db = \Config\Database::connect();
