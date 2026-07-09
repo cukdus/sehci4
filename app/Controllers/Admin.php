@@ -884,7 +884,7 @@ class Admin extends Controller
         }
 
         $data = [
-            'no_anggota' => trim((string) $this->request->getPost('no_anggota')),
+            'no_anggota' => trim((string) $this->request->getPost('no_anggota')) ?: null,
             'nama' => trim((string) $this->request->getPost('nama')),
             'jenis_kelamin' => trim((string) $this->request->getPost('jenis_kelamin')) ?: null,
             'alamat' => trim((string) $this->request->getPost('alamat')) ?: null,

@@ -19,7 +19,7 @@
             <div class="row g-3">
               <div class="col-md-4">
                 <label class="form-label">No Anggota</label>
-                <input type="text" name="no_anggota" class="form-control" value="<?= esc($anggota['no_anggota']) ?>" required />
+                <input type="text" name="no_anggota" class="form-control" value="<?= esc($anggota['no_anggota']) ?>" />
               </div>
               <div class="col-md-8">
                 <label class="form-label">Nama</label>

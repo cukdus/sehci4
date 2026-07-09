@@ -9,7 +9,7 @@ class SendWajibReminder extends BaseCommand
 {
     protected $group = 'WAHA';
     protected $name = 'waha:send-wajib-reminders';
-    protected $description = 'Mengirim pengingat simpanan wajib bulanan ke anggota aktif sesuai tanggal pengingat.';
+    protected $description = 'Mengirim pengingat simpanan wajib bulanan ke anggota aktif yang memiliki nomor anggota sesuai tanggal pengingat.';
     protected $usage = 'waha:send-wajib-reminders [--force]';
 
     protected $options = [
@@ -69,12 +69,14 @@ class SendWajibReminder extends BaseCommand
             ->table('anggota')
             ->select('id_anggota, no_anggota, nama, no_telepon, status')
             ->where('status', 'aktif')
+            ->where('no_anggota IS NOT NULL', null, false)
+            ->where('TRIM(no_anggota) !=', '')
             ->orderBy('nama', 'asc')
             ->get()
             ->getResultArray();
 
         if ($anggotaRows === []) {
-            CLI::write('Tidak ada anggota aktif untuk dikirimi pengingat.', 'yellow');
+            CLI::write('Tidak ada anggota aktif yang memiliki nomor anggota untuk dikirimi pengingat.', 'yellow');
             return;
         }
 
