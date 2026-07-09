@@ -1222,15 +1222,41 @@ class Admin extends Controller
         }
 
         $data = [
-            'no_anggota' => trim((string) $this->request->getPost('no_anggota')),
+            'no_anggota' => trim((string) $this->request->getPost('no_anggota')) ?: null,
             'nama' => trim((string) $this->request->getPost('nama')),
+            'nama_ibu' => trim((string) $this->request->getPost('nama_ibu')) ?: null,
             'jenis_kelamin' => trim((string) $this->request->getPost('jenis_kelamin')) ?: null,
+            'tempat_lahir' => trim((string) $this->request->getPost('tempat_lahir')) ?: null,
+            'tanggal_lahir' => trim((string) $this->request->getPost('tanggal_lahir')) ?: null,
             'alamat' => trim((string) $this->request->getPost('alamat')) ?: null,
             'no_telepon' => trim((string) $this->request->getPost('no_telepon')) ?: null,
+            'no_ktp' => trim((string) $this->request->getPost('no_ktp')) ?: null,
+            'no_kk' => trim((string) $this->request->getPost('no_kk')) ?: null,
+            'no_npwp' => trim((string) $this->request->getPost('no_npwp')) ?: null,
+            'pengalaman_kerja' => trim((string) $this->request->getPost('pengalaman_kerja')) ?: null,
+            'pengalaman_organisasi' => trim((string) $this->request->getPost('pengalaman_organisasi')) ?: null,
             'email' => trim((string) $this->request->getPost('email')) ?: null,
             'status' => trim((string) $this->request->getPost('status')) ?: 'aktif',
             'jenis_anggota' => trim((string) $this->request->getPost('jenis_anggota')) ?: 'aktif',
         ];
+
+        $skills = $this->request->getPost('basic_skill');
+        if (!is_array($skills)) {
+            $skills = $this->request->getPost('basic_skill[]');
+        }
+        if (!is_array($skills)) {
+            $skills = [];
+        }
+        $skills = array_map('trim', $skills);
+        $skills = array_filter($skills, static function ($value) {
+            return $value !== '' && strtolower($value) !== 'other';
+        });
+        $skills = array_values(array_unique($skills));
+        $otherSkill = trim((string) $this->request->getPost('basic_skill_other'));
+        if ($otherSkill !== '') {
+            $skills[] = $otherSkill;
+        }
+        $data['basic_skill'] = !empty($skills) ? json_encode($skills, JSON_UNESCAPED_UNICODE) : null;
 
         $fotoBase64 = (string) ($this->request->getPost('foto_cropped') ?? '');
         $fotoFile = $this->request->getFile('foto');
@@ -1281,7 +1307,10 @@ class Admin extends Controller
                     $data['tanggal_gabung'] = $actDate;
                 }
             }
-            $db->table('anggota')->where('id_anggota', $id)->update($data);
+            $fields = $db->getFieldNames('anggota');
+            $allowed = array_flip($fields);
+            $dataFiltered = array_intersect_key($data, $allowed);
+            $db->table('anggota')->where('id_anggota', $id)->update($dataFiltered);
             if (!empty($data['foto'])) {
                 $db->table('users')->where('id_anggota', $id)->update(['foto' => $data['foto']]);
             }
