@@ -199,7 +199,7 @@
 </div>
 
 <script>
-  (function(){
+  document.addEventListener('DOMContentLoaded', function(){
     let page = 1; const perPage = 25;
     const rowsEl = document.getElementById('rows');
     const pageInfo = document.getElementById('pageInfo');
@@ -411,5 +411,5 @@
     singleTanggalSimpan.value = todayIso();
     loadFeeWajib();
     load();
-  })();
+  });
 </script>
