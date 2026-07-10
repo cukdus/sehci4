@@ -1773,6 +1773,230 @@ class Admin extends Controller
         ]);
     }
 
+    public function apiBulkAddSimpananPokok()
+    {
+        $session = session();
+        $user = $session->get('user');
+        if (!$session->get('isLoggedIn') || !$user) {
+            return $this->response->setStatusCode(401)->setJSON(['error' => 'Unauthorized']);
+        }
+        $role = $user['role'] ?? null;
+        if (!in_array($role, ['petugas', 'admin', 'anggota_petugas'], true)) {
+            return $this->response->setStatusCode(403)->setJSON(['error' => 'Forbidden']);
+        }
+
+        $tanggalSimpan = trim((string) ($this->request->getPost('tanggal_simpan') ?? ''));
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $tanggalSimpan)) {
+            return $this->response->setStatusCode(400)->setJSON(['error' => 'Tanggal simpan tidak valid']);
+        }
+
+        $overwrite = filter_var($this->request->getPost('overwrite') ?? '0', FILTER_VALIDATE_BOOLEAN);
+
+        $status = strtolower(trim((string) ($this->request->getPost('status') ?? 'pending')));
+        if (!in_array($status, ['pending', 'aktif'], true)) {
+            $status = 'pending';
+        }
+
+        $jumlahRaw = trim((string) ($this->request->getPost('jumlah') ?? ''));
+        $jumlah = 0.0;
+        $db = \Config\Database::connect();
+        if ($jumlahRaw === '') {
+            $feeRow = $db->table('settings')->where('key', 'fee_pokok')->get()->getRowArray();
+            $jumlah = (float) ($feeRow['value'] ?? 0);
+        } else {
+            $clean = str_replace(['.', ','], ['', '.'], $jumlahRaw);
+            $jumlah = (float) $clean;
+        }
+        if ($jumlah <= 0) {
+            return $this->response->setStatusCode(400)->setJSON(['error' => 'Jumlah simpanan pokok harus lebih dari 0']);
+        }
+
+        @set_time_limit(0);
+        $anggotaRows = $db->table('anggota')
+            ->select('id_anggota, no_anggota, nama')
+            ->where('status', 'aktif')
+            ->where('no_anggota IS NOT NULL', null, false)
+            ->where('TRIM(no_anggota) !=', '')
+            ->orderBy('nama', 'asc')
+            ->get()
+            ->getResultArray();
+
+        if ($anggotaRows === []) {
+            return $this->response->setStatusCode(404)->setJSON(['error' => 'Tidak ada anggota aktif yang memiliki nomor anggota']);
+        }
+
+        $inserted = 0;
+        $updated = 0;
+        $skipped = 0;
+        $failed = 0;
+        $sampleErrors = [];
+
+        foreach ($anggotaRows as $a) {
+            $idAnggota = (int) ($a['id_anggota'] ?? 0);
+            if ($idAnggota <= 0) {
+                $failed++;
+                continue;
+            }
+
+            $exists = $db->table('simpanan')
+                ->select('id_simpanan')
+                ->where('id_anggota', $idAnggota)
+                ->where('jenis_simpanan', 'pokok')
+                ->where('tanggal_simpan', $tanggalSimpan)
+                ->get()
+                ->getRowArray();
+
+            if ($exists) {
+                if (!$overwrite) {
+                    $skipped++;
+                    continue;
+                }
+
+                try {
+                    $db->table('simpanan')
+                        ->where('id_simpanan', (int) $exists['id_simpanan'])
+                        ->update([
+                            'jumlah' => $jumlah,
+                            'status' => $status,
+                        ]);
+                    $updated++;
+                } catch (\Throwable $e) {
+                    $failed++;
+                    if (count($sampleErrors) < 5) {
+                        $sampleErrors[] = [
+                            'id_anggota' => $idAnggota,
+                            'nama' => (string) ($a['nama'] ?? ''),
+                            'error' => $e->getMessage(),
+                        ];
+                    }
+                }
+                continue;
+            }
+
+            try {
+                $db->table('simpanan')->insert([
+                    'id_anggota' => $idAnggota,
+                    'jenis_simpanan' => 'pokok',
+                    'tipe_sukarela' => null,
+                    'jumlah' => $jumlah,
+                    'tanggal_simpan' => $tanggalSimpan,
+                    'jangka_waktu' => null,
+                    'status' => $status,
+                ]);
+                $inserted++;
+            } catch (\Throwable $e) {
+                $failed++;
+                if (count($sampleErrors) < 5) {
+                    $sampleErrors[] = [
+                        'id_anggota' => $idAnggota,
+                        'nama' => (string) ($a['nama'] ?? ''),
+                        'error' => $e->getMessage(),
+                    ];
+                }
+            }
+        }
+
+        return $this->response->setJSON([
+            'ok' => true,
+            'tanggal_simpan' => $tanggalSimpan,
+            'jumlah' => $jumlah,
+            'status' => $status,
+            'overwrite' => $overwrite,
+            'total_target' => count($anggotaRows),
+            'inserted' => $inserted,
+            'updated' => $updated,
+            'skipped' => $skipped,
+            'failed' => $failed,
+            'errors' => $sampleErrors,
+        ]);
+    }
+
+    public function apiAddSimpananPokokByAnggota()
+    {
+        $session = session();
+        $user = $session->get('user');
+        if (!$session->get('isLoggedIn') || !$user) {
+            return $this->response->setStatusCode(401)->setJSON(['error' => 'Unauthorized']);
+        }
+        $role = $user['role'] ?? null;
+        if (!in_array($role, ['petugas', 'admin', 'anggota_petugas'], true)) {
+            return $this->response->setStatusCode(403)->setJSON(['error' => 'Forbidden']);
+        }
+
+        $idAnggota = (int) ($this->request->getPost('id_anggota') ?? 0);
+        if ($idAnggota <= 0) {
+            return $this->response->setStatusCode(400)->setJSON(['error' => 'Anggota tidak valid']);
+        }
+
+        $tanggalSimpan = trim((string) ($this->request->getPost('tanggal_simpan') ?? ''));
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $tanggalSimpan)) {
+            return $this->response->setStatusCode(400)->setJSON(['error' => 'Tanggal simpan tidak valid']);
+        }
+
+        $status = strtolower(trim((string) ($this->request->getPost('status') ?? 'pending')));
+        if (!in_array($status, ['pending', 'aktif'], true)) {
+            $status = 'pending';
+        }
+
+        $jumlahRaw = trim((string) ($this->request->getPost('jumlah') ?? ''));
+        $jumlah = 0.0;
+        $db = \Config\Database::connect();
+        if ($jumlahRaw === '') {
+            $feeRow = $db->table('settings')->where('key', 'fee_pokok')->get()->getRowArray();
+            $jumlah = (float) ($feeRow['value'] ?? 0);
+        } else {
+            $clean = str_replace(['.', ','], ['', '.'], $jumlahRaw);
+            $jumlah = (float) $clean;
+        }
+        if ($jumlah <= 0) {
+            return $this->response->setStatusCode(400)->setJSON(['error' => 'Jumlah simpanan pokok harus lebih dari 0']);
+        }
+
+        $anggota = $db->table('anggota')
+            ->select('id_anggota, no_anggota, nama, status')
+            ->where('id_anggota', $idAnggota)
+            ->get()
+            ->getRowArray();
+        if (!$anggota) {
+            return $this->response->setStatusCode(404)->setJSON(['error' => 'Anggota tidak ditemukan']);
+        }
+        if (($anggota['status'] ?? '') !== 'aktif') {
+            return $this->response->setStatusCode(400)->setJSON(['error' => 'Anggota tidak aktif']);
+        }
+        if (trim((string) ($anggota['no_anggota'] ?? '')) === '') {
+            return $this->response->setStatusCode(400)->setJSON(['error' => 'Anggota belum memiliki nomor anggota']);
+        }
+
+        $exists = $db->table('simpanan')
+            ->select('id_simpanan')
+            ->where('id_anggota', $idAnggota)
+            ->where('jenis_simpanan', 'pokok')
+            ->where('tanggal_simpan', $tanggalSimpan)
+            ->get()
+            ->getRowArray();
+        if ($exists) {
+            return $this->response->setStatusCode(409)->setJSON(['error' => 'Simpanan pokok untuk tanggal tersebut sudah ada (duplikasi)']);
+        }
+
+        try {
+            $db->table('simpanan')->insert([
+                'id_anggota' => $idAnggota,
+                'jenis_simpanan' => 'pokok',
+                'tipe_sukarela' => null,
+                'jumlah' => $jumlah,
+                'tanggal_simpan' => $tanggalSimpan,
+                'jangka_waktu' => null,
+                'status' => $status,
+            ]);
+            return $this->response->setJSON([
+                'ok' => true,
+                'id_simpanan' => (int) $db->insertID(),
+            ]);
+        } catch (\Throwable $e) {
+            return $this->response->setStatusCode(500)->setJSON(['error' => 'Gagal menambahkan simpanan pokok: ' . $e->getMessage()]);
+        }
+    }
+
     public function apiSimpananWajib()
     {
         $session = session();

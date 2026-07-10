@@ -67,6 +67,8 @@ $routes->get('admin/simpanan/wajib', 'Admin::simpananWajib');
 $routes->get('admin/simpanan/sukarela', 'Admin::simpananSukarela');
 $routes->get('admin/simpanan/data', 'Admin::simpananData');
 $routes->get('admin/api/simpanan/pokok', 'Admin::apiSimpananPokok');
+$routes->post('admin/api/simpanan/pokok/bulk-add', 'Admin::apiBulkAddSimpananPokok');
+$routes->post('admin/api/simpanan/pokok/add-by-anggota', 'Admin::apiAddSimpananPokokByAnggota');
 $routes->get('admin/api/simpanan/wajib', 'Admin::apiSimpananWajib');
 $routes->post('admin/api/simpanan/wajib/bulk-add', 'Admin::apiBulkAddSimpananWajib');
 $routes->post('admin/api/simpanan/wajib/add-by-anggota', 'Admin::apiAddSimpananWajibByAnggota');
