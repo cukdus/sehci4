@@ -12,6 +12,12 @@ class Anggota extends Controller
         'image/webp',
     ];
 
+    private const PROFILE_PHOTO_EXTENSIONS = [
+        'image/jpeg' => 'jpg',
+        'image/png' => 'png',
+        'image/webp' => 'webp',
+    ];
+
     public function index()
     {
         $session = session();
@@ -363,24 +369,18 @@ class Anggota extends Controller
             throw new \RuntimeException('Ukuran foto hasil crop terlalu besar');
         }
 
-        $tmpPath = $uploadDir . DIRECTORY_SEPARATOR . 'tmp_crop_' . time() . '_' . bin2hex(random_bytes(4));
-        $finalName = 'foto_' . time() . '_' . bin2hex(random_bytes(4)) . '.webp';
-        $finalPath = $uploadDir . DIRECTORY_SEPARATOR . $finalName;
-
-        try {
-            if (file_put_contents($tmpPath, $binary) === false) {
-                throw new \RuntimeException('File foto sementara gagal disimpan');
-            }
-
-            $image = \Config\Services::image();
-            $image->withFile($tmpPath)->fit(500, 500, 'center')->save($finalPath, 80);
-        } catch (\Throwable $e) {
-            @unlink($tmpPath);
-            @unlink($finalPath);
-            throw new \RuntimeException('Foto tidak bisa diproses. Gunakan file JPG, PNG, atau WEBP yang lebih ringan.');
+        if (@getimagesizefromstring($binary) === false) {
+            throw new \RuntimeException('Isi file foto tidak valid');
         }
 
-        @unlink($tmpPath);
+        $extension = self::PROFILE_PHOTO_EXTENSIONS[$mime] ?? 'jpg';
+        $finalName = 'foto_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $extension;
+        $finalPath = $uploadDir . DIRECTORY_SEPARATOR . $finalName;
+
+        if (file_put_contents($finalPath, $binary) === false) {
+            @unlink($finalPath);
+            throw new \RuntimeException('File foto gagal disimpan');
+        }
 
         return '/uploads/anggota/' . $finalName;
     }
@@ -400,23 +400,14 @@ class Anggota extends Controller
             throw new \RuntimeException('Format foto harus JPG, PNG, atau WEBP');
         }
 
-        $ext = strtolower((string) ($fotoFile->getClientExtension() ?: $fotoFile->guessExtension() ?: 'jpg'));
-        $tmpName = 'tmp_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
-        $tmpPath = $uploadDir . DIRECTORY_SEPARATOR . $tmpName;
-        $finalName = 'foto_' . time() . '_' . bin2hex(random_bytes(4)) . '.webp';
-        $finalPath = $uploadDir . DIRECTORY_SEPARATOR . $finalName;
+        $extension = self::PROFILE_PHOTO_EXTENSIONS[$mime] ?? strtolower((string) ($fotoFile->getClientExtension() ?: $fotoFile->guessExtension() ?: 'jpg'));
+        $finalName = 'foto_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $extension;
 
         try {
-            $fotoFile->move($uploadDir, $tmpName);
-            $image = \Config\Services::image();
-            $image->withFile($tmpPath)->fit(500, 500, 'center')->save($finalPath, 80);
+            $fotoFile->move($uploadDir, $finalName);
         } catch (\Throwable $e) {
-            @unlink($tmpPath);
-            @unlink($finalPath);
-            throw new \RuntimeException('Foto tidak bisa diproses. Gunakan file JPG, PNG, atau WEBP yang lebih ringan.');
+            throw new \RuntimeException('File foto gagal dipindahkan');
         }
-
-        @unlink($tmpPath);
 
         return '/uploads/anggota/' . $finalName;
     }

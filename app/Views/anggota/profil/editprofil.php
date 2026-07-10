@@ -240,6 +240,10 @@
     if (!cropper) return;
     const canvas = cropper.getCroppedCanvas({ width: 500, height: 500 });
     canvas.toBlob(function(blob) {
+      if (!blob) {
+        alert('Foto hasil crop tidak dapat dibuat. Coba gunakan file JPG atau PNG lain.');
+        return;
+      }
       const reader = new FileReader();
       reader.onloadend = function() {
         fotoCropped.value = reader.result;
@@ -248,7 +252,7 @@
         bootstrap.Modal.getInstance(cropModalEl).hide();
       };
       reader.readAsDataURL(blob);
-    }, 'image/webp', 0.8);
+    }, 'image/png');
   });
 
   const skillOtherCheckbox = document.getElementById('skillOther');
