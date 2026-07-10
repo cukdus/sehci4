@@ -379,7 +379,8 @@ class Admin extends Controller
         $db = \Config\Database::connect();
         $this->ensureWahaBroadcastTables($db);
 
-        $broadcast = $db->table('waha_broadcasts')
+        $broadcast = $db
+            ->table('waha_broadcasts')
             ->where('id', $broadcastId)
             ->get()
             ->getRowArray();
@@ -388,7 +389,8 @@ class Admin extends Controller
             return redirect()->to('/admin/setting/waha')->with('error', 'Data broadcast tidak ditemukan');
         }
 
-        $logs = $db->table('waha_broadcast_logs')
+        $logs = $db
+            ->table('waha_broadcast_logs')
             ->where('broadcast_id', $broadcastId)
             ->orderBy('id', 'asc')
             ->get()
@@ -514,7 +516,8 @@ class Admin extends Controller
         $db = \Config\Database::connect();
         $this->ensureWahaBroadcastTables($db);
         @set_time_limit(0);
-        $anggotaRows = $db->table('anggota')
+        $anggotaRows = $db
+            ->table('anggota')
             ->select('id_anggota, no_anggota, nama, no_telepon, status')
             ->where('status', 'aktif')
             ->orderBy('nama', 'asc')
@@ -627,6 +630,173 @@ class Admin extends Controller
         ]);
     }
 
+    public function apiSendWajibReminder()
+    {
+        $session = session();
+        $user = $session->get('user');
+        if (!$session->get('isLoggedIn') || !$user) {
+            return $this->response->setStatusCode(401)->setJSON(['error' => 'Unauthorized']);
+        }
+        $role = $user['role'] ?? null;
+        if (!in_array($role, ['admin', 'petugas', 'anggota_petugas'], true)) {
+            return $this->response->setStatusCode(403)->setJSON(['error' => 'Forbidden']);
+        }
+
+        try {
+            $db = \Config\Database::connect();
+            $this->ensureWahaReminderJobsTable($db);
+
+            $force = filter_var($this->request->getPost('force') ?? '0', FILTER_VALIDATE_BOOLEAN);
+            $mode = strtolower(trim((string) ($this->request->getPost('mode') ?? 'all')));
+            if (!in_array($mode, ['all', 'failed'], true)) {
+                $mode = 'all';
+            }
+
+            $period = date('Y-m');
+            $createdBy = (string) ($user['username'] ?? $user['role'] ?? 'admin');
+
+            $db->table('waha_reminder_jobs')->insert([
+                'slug' => 'wajib_reminder',
+                'period' => $period,
+                'mode' => $mode,
+                'is_force' => $force ? 1 : 0,
+                'status' => 'pending',
+                'created_by' => $createdBy,
+            ]);
+            $jobId = (int) $db->insertID();
+
+            return $this->response->setJSON([
+                'ok' => true,
+                'job_id' => $jobId,
+                'status' => 'pending',
+                'period' => $period,
+                'mode' => $mode,
+                'message' => 'Job pengiriman dibuat. Worker akan memproses di background dan hanya akan retry yang gagal jika mode=failed.',
+            ]);
+        } catch (\Throwable $e) {
+            log_message('error', 'Enqueue wajib reminder job failed: ' . $e->getMessage());
+            return $this->response->setStatusCode(500)->setJSON([
+                'ok' => false,
+                'error' => 'Gagal membuat job pengingat simpanan wajib: ' . $e->getMessage(),
+            ]);
+        }
+    }
+
+    public function apiWahaReminderJobHistory()
+    {
+        $session = session();
+        $user = $session->get('user');
+        if (!$session->get('isLoggedIn') || !$user) {
+            return $this->response->setStatusCode(401)->setJSON(['error' => 'Unauthorized']);
+        }
+        $role = $user['role'] ?? null;
+        if (!in_array($role, ['admin', 'petugas', 'anggota_petugas'], true)) {
+            return $this->response->setStatusCode(403)->setJSON(['error' => 'Forbidden']);
+        }
+
+        $db = \Config\Database::connect();
+        $this->ensureWahaReminderJobsTable($db);
+
+        $rows = $db
+            ->table('waha_reminder_jobs')
+            ->select('id, slug, period, mode, is_force, status, created_by, message, total_target, sent_count, failed_count, skipped_count, started_at, finished_at, created_at')
+            ->where('slug', 'wajib_reminder')
+            ->orderBy('id', 'desc')
+            ->limit(20)
+            ->get()
+            ->getResultArray();
+
+        return $this->response->setJSON([
+            'ok' => true,
+            'items' => $rows,
+        ]);
+    }
+
+    public function apiWahaReminderJobRetryFailed()
+    {
+        $session = session();
+        $user = $session->get('user');
+        if (!$session->get('isLoggedIn') || !$user) {
+            return $this->response->setStatusCode(401)->setJSON(['error' => 'Unauthorized']);
+        }
+        $role = $user['role'] ?? null;
+        if (!in_array($role, ['admin', 'petugas', 'anggota_petugas'], true)) {
+            return $this->response->setStatusCode(403)->setJSON(['error' => 'Forbidden']);
+        }
+
+        try {
+            $db = \Config\Database::connect();
+            $this->ensureWahaReminderJobsTable($db);
+
+            $period = trim((string) ($this->request->getPost('period') ?? date('Y-m')));
+            if (!preg_match('/^\d{4}-\d{2}$/', $period)) {
+                $period = date('Y-m');
+            }
+
+            $createdBy = (string) ($user['username'] ?? $user['role'] ?? 'admin');
+            $db->table('waha_reminder_jobs')->insert([
+                'slug' => 'wajib_reminder',
+                'period' => $period,
+                'mode' => 'failed',
+                'is_force' => 1,
+                'status' => 'pending',
+                'created_by' => $createdBy,
+            ]);
+            $jobId = (int) $db->insertID();
+
+            return $this->response->setJSON([
+                'ok' => true,
+                'job_id' => $jobId,
+                'status' => 'pending',
+                'period' => $period,
+                'mode' => 'failed',
+                'message' => 'Job retry dibuat. Worker hanya akan mencoba ulang pesan yang gagal dan tidak mengulang yang sudah sukses.',
+            ]);
+        } catch (\Throwable $e) {
+            log_message('error', 'Enqueue retry failed job failed: ' . $e->getMessage());
+            return $this->response->setStatusCode(500)->setJSON([
+                'ok' => false,
+                'error' => 'Gagal membuat job retry: ' . $e->getMessage(),
+            ]);
+        }
+    }
+
+    public function apiWahaReminderJobDetail($id)
+    {
+        $session = session();
+        $user = $session->get('user');
+        if (!$session->get('isLoggedIn') || !$user) {
+            return $this->response->setStatusCode(401)->setJSON(['error' => 'Unauthorized']);
+        }
+        $role = $user['role'] ?? null;
+        if (!in_array($role, ['admin', 'petugas', 'anggota_petugas'], true)) {
+            return $this->response->setStatusCode(403)->setJSON(['error' => 'Forbidden']);
+        }
+
+        $jobId = (int) $id;
+        if ($jobId <= 0) {
+            return $this->response->setStatusCode(400)->setJSON(['error' => 'ID job tidak valid']);
+        }
+
+        $db = \Config\Database::connect();
+        $this->ensureWahaReminderJobsTable($db);
+
+        $row = $db
+            ->table('waha_reminder_jobs')
+            ->where('id', $jobId)
+            ->get()
+            ->getRowArray();
+
+        if (!$row) {
+            return $this->response->setStatusCode(404)->setJSON(['error' => 'Job tidak ditemukan']);
+        }
+
+        return $this->response->setJSON([
+            'ok' => true,
+            'item' => $row,
+        ]);
+    }
+
     public function apiWahaBroadcastHistory()
     {
         $session = session();
@@ -642,7 +812,8 @@ class Admin extends Controller
         $db = \Config\Database::connect();
         $this->ensureWahaBroadcastTables($db);
 
-        $rows = $db->table('waha_broadcasts')
+        $rows = $db
+            ->table('waha_broadcasts')
             ->select('id, title, message, created_by, total_target, sent_count, failed_count, skipped_count, status, created_at')
             ->orderBy('id', 'desc')
             ->limit(20)
@@ -690,6 +861,36 @@ class Admin extends Controller
                 KEY idx_anggota (id_anggota)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
         }
+    }
+
+    private function ensureWahaReminderJobsTable($db): void
+    {
+        $tables = $db->listTables();
+        if (in_array('waha_reminder_jobs', $tables, true)) {
+            return;
+        }
+
+        $db->query("CREATE TABLE IF NOT EXISTS waha_reminder_jobs (
+          id INT(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+          slug VARCHAR(50) NOT NULL,
+          period CHAR(7) NOT NULL,
+          mode VARCHAR(20) NOT NULL DEFAULT 'all',
+          is_force TINYINT(1) NOT NULL DEFAULT 0,
+          status VARCHAR(20) NOT NULL DEFAULT 'pending',
+          created_by VARCHAR(100) DEFAULT NULL,
+          message TEXT DEFAULT NULL,
+          total_target INT(10) UNSIGNED NOT NULL DEFAULT 0,
+          sent_count INT(10) UNSIGNED NOT NULL DEFAULT 0,
+          failed_count INT(10) UNSIGNED NOT NULL DEFAULT 0,
+          skipped_count INT(10) UNSIGNED NOT NULL DEFAULT 0,
+          started_at DATETIME DEFAULT NULL,
+          finished_at DATETIME DEFAULT NULL,
+          created_at TIMESTAMP NULL DEFAULT current_timestamp(),
+          updated_at TIMESTAMP NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+          PRIMARY KEY (id),
+          KEY idx_slug_period_status (slug, period, status),
+          KEY idx_status_created_at (status, created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
     }
 
     private function normalizeWahaPhone(string $phone): string
@@ -1623,6 +1824,268 @@ class Admin extends Controller
                 'unpaidCount' => $pendingCount,
             ],
         ]);
+    }
+
+    public function apiBulkAddSimpananWajib()
+    {
+        $session = session();
+        $user = $session->get('user');
+        if (!$session->get('isLoggedIn') || !$user) {
+            return $this->response->setStatusCode(401)->setJSON(['error' => 'Unauthorized']);
+        }
+        $role = $user['role'] ?? null;
+        if (!in_array($role, ['petugas', 'admin', 'anggota_petugas'], true)) {
+            return $this->response->setStatusCode(403)->setJSON(['error' => 'Forbidden']);
+        }
+
+        $tanggalSimpan = trim((string) ($this->request->getPost('tanggal_simpan') ?? ''));
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $tanggalSimpan)) {
+            return $this->response->setStatusCode(400)->setJSON(['error' => 'Tanggal simpan tidak valid']);
+        }
+
+        $overwrite = filter_var($this->request->getPost('overwrite') ?? '0', FILTER_VALIDATE_BOOLEAN);
+
+        $status = strtolower(trim((string) ($this->request->getPost('status') ?? 'pending')));
+        if (!in_array($status, ['pending', 'aktif'], true)) {
+            $status = 'pending';
+        }
+
+        $jumlahRaw = trim((string) ($this->request->getPost('jumlah') ?? ''));
+        $jumlah = 0.0;
+        if ($jumlahRaw === '') {
+            $db = \Config\Database::connect();
+            $feeRow = $db->table('settings')->where('key', 'fee_wajib')->get()->getRowArray();
+            $jumlah = (float) ($feeRow['value'] ?? 0);
+        } else {
+            $clean = str_replace(['.', ','], ['', '.'], $jumlahRaw);
+            $jumlah = (float) $clean;
+        }
+        if ($jumlah <= 0) {
+            return $this->response->setStatusCode(400)->setJSON(['error' => 'Jumlah simpanan wajib harus lebih dari 0']);
+        }
+
+        @set_time_limit(0);
+        $db = \Config\Database::connect();
+
+        $anggotaRows = $db->table('anggota')
+            ->select('id_anggota, no_anggota, nama')
+            ->where('status', 'aktif')
+            ->where('no_anggota IS NOT NULL', null, false)
+            ->where('TRIM(no_anggota) !=', '')
+            ->orderBy('nama', 'asc')
+            ->get()
+            ->getResultArray();
+
+        if ($anggotaRows === []) {
+            return $this->response->setStatusCode(404)->setJSON(['error' => 'Tidak ada anggota aktif yang memiliki nomor anggota']);
+        }
+
+        $inserted = 0;
+        $updated = 0;
+        $skipped = 0;
+        $failed = 0;
+        $sampleErrors = [];
+
+        foreach ($anggotaRows as $a) {
+            $idAnggota = (int) ($a['id_anggota'] ?? 0);
+            if ($idAnggota <= 0) {
+                $failed++;
+                continue;
+            }
+
+            $exists = $db->table('simpanan')
+                ->select('id_simpanan')
+                ->where('id_anggota', $idAnggota)
+                ->where('jenis_simpanan', 'wajib')
+                ->where('tanggal_simpan', $tanggalSimpan)
+                ->get()
+                ->getRowArray();
+
+            if ($exists) {
+                if (!$overwrite) {
+                    $skipped++;
+                    continue;
+                }
+
+                try {
+                    $db->table('simpanan')
+                        ->where('id_simpanan', (int) $exists['id_simpanan'])
+                        ->update([
+                            'jumlah' => $jumlah,
+                            'status' => $status,
+                        ]);
+                    $updated++;
+                } catch (\Throwable $e) {
+                    $failed++;
+                    if (count($sampleErrors) < 5) {
+                        $sampleErrors[] = [
+                            'id_anggota' => $idAnggota,
+                            'nama' => (string) ($a['nama'] ?? ''),
+                            'error' => $e->getMessage(),
+                        ];
+                    }
+                }
+                continue;
+            }
+
+            try {
+                $db->table('simpanan')->insert([
+                    'id_anggota' => $idAnggota,
+                    'jenis_simpanan' => 'wajib',
+                    'tipe_sukarela' => null,
+                    'jumlah' => $jumlah,
+                    'tanggal_simpan' => $tanggalSimpan,
+                    'jangka_waktu' => null,
+                    'status' => $status,
+                ]);
+                $inserted++;
+            } catch (\Throwable $e) {
+                $failed++;
+                if (count($sampleErrors) < 5) {
+                    $sampleErrors[] = [
+                        'id_anggota' => $idAnggota,
+                        'nama' => (string) ($a['nama'] ?? ''),
+                        'error' => $e->getMessage(),
+                    ];
+                }
+            }
+        }
+
+        return $this->response->setJSON([
+            'ok' => true,
+            'tanggal_simpan' => $tanggalSimpan,
+            'jumlah' => $jumlah,
+            'status' => $status,
+            'overwrite' => $overwrite,
+            'total_target' => count($anggotaRows),
+            'inserted' => $inserted,
+            'updated' => $updated,
+            'skipped' => $skipped,
+            'failed' => $failed,
+            'errors' => $sampleErrors,
+        ]);
+    }
+
+    public function apiAddSimpananWajibByAnggota()
+    {
+        $session = session();
+        $user = $session->get('user');
+        if (!$session->get('isLoggedIn') || !$user) {
+            return $this->response->setStatusCode(401)->setJSON(['error' => 'Unauthorized']);
+        }
+        $role = $user['role'] ?? null;
+        if (!in_array($role, ['petugas', 'admin', 'anggota_petugas'], true)) {
+            return $this->response->setStatusCode(403)->setJSON(['error' => 'Forbidden']);
+        }
+
+        $idAnggota = (int) ($this->request->getPost('id_anggota') ?? 0);
+        if ($idAnggota <= 0) {
+            return $this->response->setStatusCode(400)->setJSON(['error' => 'Anggota tidak valid']);
+        }
+
+        $tanggalSimpan = trim((string) ($this->request->getPost('tanggal_simpan') ?? ''));
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $tanggalSimpan)) {
+            return $this->response->setStatusCode(400)->setJSON(['error' => 'Tanggal simpan tidak valid']);
+        }
+
+        $status = strtolower(trim((string) ($this->request->getPost('status') ?? 'pending')));
+        if (!in_array($status, ['pending', 'aktif'], true)) {
+            $status = 'pending';
+        }
+
+        $jumlahRaw = trim((string) ($this->request->getPost('jumlah') ?? ''));
+        $jumlah = 0.0;
+        if ($jumlahRaw === '') {
+            $db = \Config\Database::connect();
+            $feeRow = $db->table('settings')->where('key', 'fee_wajib')->get()->getRowArray();
+            $jumlah = (float) ($feeRow['value'] ?? 0);
+        } else {
+            $clean = str_replace(['.', ','], ['', '.'], $jumlahRaw);
+            $jumlah = (float) $clean;
+        }
+        if ($jumlah <= 0) {
+            return $this->response->setStatusCode(400)->setJSON(['error' => 'Jumlah simpanan wajib harus lebih dari 0']);
+        }
+
+        $db = \Config\Database::connect();
+        $anggota = $db->table('anggota')
+            ->select('id_anggota, no_anggota, nama, status')
+            ->where('id_anggota', $idAnggota)
+            ->get()
+            ->getRowArray();
+        if (!$anggota) {
+            return $this->response->setStatusCode(404)->setJSON(['error' => 'Anggota tidak ditemukan']);
+        }
+        if (($anggota['status'] ?? '') !== 'aktif') {
+            return $this->response->setStatusCode(400)->setJSON(['error' => 'Anggota tidak aktif']);
+        }
+        if (trim((string) ($anggota['no_anggota'] ?? '')) === '') {
+            return $this->response->setStatusCode(400)->setJSON(['error' => 'Anggota belum memiliki nomor anggota']);
+        }
+
+        $exists = $db->table('simpanan')
+            ->select('id_simpanan')
+            ->where('id_anggota', $idAnggota)
+            ->where('jenis_simpanan', 'wajib')
+            ->where('tanggal_simpan', $tanggalSimpan)
+            ->get()
+            ->getRowArray();
+        if ($exists) {
+            return $this->response->setStatusCode(409)->setJSON(['error' => 'Simpanan wajib untuk tanggal tersebut sudah ada (duplikasi)']);
+        }
+
+        try {
+            $db->table('simpanan')->insert([
+                'id_anggota' => $idAnggota,
+                'jenis_simpanan' => 'wajib',
+                'tipe_sukarela' => null,
+                'jumlah' => $jumlah,
+                'tanggal_simpan' => $tanggalSimpan,
+                'jangka_waktu' => null,
+                'status' => $status,
+            ]);
+            return $this->response->setJSON([
+                'ok' => true,
+                'id_simpanan' => (int) $db->insertID(),
+            ]);
+        } catch (\Throwable $e) {
+            return $this->response->setStatusCode(500)->setJSON(['error' => 'Gagal menambahkan simpanan wajib: ' . $e->getMessage()]);
+        }
+    }
+
+    public function apiSearchAnggota()
+    {
+        $session = session();
+        $user = $session->get('user');
+        if (!$session->get('isLoggedIn') || !$user) {
+            return $this->response->setStatusCode(401)->setJSON(['error' => 'Unauthorized']);
+        }
+        $role = $user['role'] ?? null;
+        if (!in_array($role, ['petugas', 'admin', 'anggota_petugas'], true)) {
+            return $this->response->setStatusCode(403)->setJSON(['error' => 'Forbidden']);
+        }
+
+        $term = trim((string) ($this->request->getGet('term') ?? ''));
+        if ($term === '' || mb_strlen($term) < 2) {
+            return $this->response->setJSON(['ok' => true, 'items' => []]);
+        }
+
+        $db = \Config\Database::connect();
+        $rows = $db->table('anggota')
+            ->select('id_anggota, no_anggota, nama')
+            ->where('status', 'aktif')
+            ->where('no_anggota IS NOT NULL', null, false)
+            ->where('TRIM(no_anggota) !=', '')
+            ->groupStart()
+            ->like('nama', $term)
+            ->orLike('no_anggota', $term)
+            ->groupEnd()
+            ->orderBy('nama', 'asc')
+            ->limit(15)
+            ->get()
+            ->getResultArray();
+
+        return $this->response->setJSON(['ok' => true, 'items' => $rows]);
     }
 
     public function apiSimpananSukarela()
