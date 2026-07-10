@@ -2365,6 +2365,200 @@ class Admin extends Controller
         ]);
     }
 
+    public function apiAddSimpananSukarelaByAnggota()
+    {
+        $session = session();
+        $user = $session->get('user');
+        if (!$session->get('isLoggedIn') || !$user) {
+            return $this->response->setStatusCode(401)->setJSON(['error' => 'Unauthorized']);
+        }
+        $role = $user['role'] ?? null;
+        if (!in_array($role, ['petugas', 'admin', 'anggota_petugas'], true)) {
+            return $this->response->setStatusCode(403)->setJSON(['error' => 'Forbidden']);
+        }
+
+        $idAnggota = (int) ($this->request->getPost('id_anggota') ?? 0);
+        if ($idAnggota <= 0) {
+            return $this->response->setStatusCode(400)->setJSON(['error' => 'Anggota tidak valid']);
+        }
+
+        $tanggalSimpan = trim((string) ($this->request->getPost('tanggal_simpan') ?? ''));
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $tanggalSimpan)) {
+            return $this->response->setStatusCode(400)->setJSON(['error' => 'Tanggal simpan tidak valid']);
+        }
+
+        $jumlahRaw = trim((string) ($this->request->getPost('jumlah') ?? '0'));
+        $jumlahClean = str_replace([',', ' '], ['', ''], $jumlahRaw);
+        $jumlah = is_numeric($jumlahClean) ? (float) $jumlahClean : 0.0;
+        if ($jumlah <= 0) {
+            return $this->response->setStatusCode(400)->setJSON(['error' => 'Jumlah simpanan sukarela harus lebih dari 0']);
+        }
+
+        $tipe = strtolower(trim((string) ($this->request->getPost('tipe_sukarela') ?? '')));
+        if (!in_array($tipe, ['biasa', 'berjangka'], true)) {
+            return $this->response->setStatusCode(400)->setJSON(['error' => 'Tipe simpanan sukarela tidak valid']);
+        }
+
+        $jangkaWaktu = (int) ($this->request->getPost('jangka_waktu') ?? 0);
+        if ($tipe === 'berjangka' && $jangkaWaktu <= 0) {
+            return $this->response->setStatusCode(400)->setJSON(['error' => 'Jangka waktu wajib diisi untuk simpanan berjangka']);
+        }
+
+        $status = strtolower(trim((string) ($this->request->getPost('status') ?? 'pending')));
+        if (!in_array($status, ['pending', 'aktif'], true)) {
+            $status = 'pending';
+        }
+
+        $db = \Config\Database::connect();
+        $anggota = $db->table('anggota')
+            ->select('id_anggota, no_anggota, nama, status')
+            ->where('id_anggota', $idAnggota)
+            ->get()
+            ->getRowArray();
+        if (!$anggota) {
+            return $this->response->setStatusCode(404)->setJSON(['error' => 'Anggota tidak ditemukan']);
+        }
+        if (($anggota['status'] ?? '') !== 'aktif') {
+            return $this->response->setStatusCode(400)->setJSON(['error' => 'Anggota tidak aktif']);
+        }
+        if (trim((string) ($anggota['no_anggota'] ?? '')) === '') {
+            return $this->response->setStatusCode(400)->setJSON(['error' => 'Anggota belum memiliki nomor anggota']);
+        }
+
+        $dataInsert = [
+            'id_anggota' => $idAnggota,
+            'tanggal_simpan' => $tanggalSimpan,
+            'jenis_simpanan' => 'sukarela',
+            'jumlah' => number_format($jumlah, 2, '.', ''),
+            'status' => $status,
+            'tipe_sukarela' => $tipe,
+            'jangka_waktu' => $tipe === 'berjangka' ? $jangkaWaktu : null,
+        ];
+
+        try {
+            $fields = $db->getFieldNames('simpanan');
+        } catch (\Throwable $e) {
+            $fields = ['id_anggota', 'tanggal_simpan', 'jenis_simpanan', 'jumlah', 'status', 'tipe_sukarela', 'jangka_waktu'];
+        }
+        $allowed = array_flip($fields);
+        $dataFiltered = array_intersect_key($dataInsert, $allowed);
+
+        try {
+            $db->table('simpanan')->insert($dataFiltered);
+            return $this->response->setJSON([
+                'ok' => true,
+                'id_simpanan' => (int) $db->insertID(),
+            ]);
+        } catch (\Throwable $e) {
+            return $this->response->setStatusCode(500)->setJSON(['error' => 'Gagal menambahkan simpanan sukarela: ' . $e->getMessage()]);
+        }
+    }
+
+    public function apiUpdateSimpananSukarela()
+    {
+        $session = session();
+        $user = $session->get('user');
+        if (!$session->get('isLoggedIn') || !$user) {
+            return $this->response->setStatusCode(401)->setJSON(['error' => 'Unauthorized']);
+        }
+        $role = $user['role'] ?? null;
+        if (!in_array($role, ['petugas', 'admin', 'anggota_petugas'], true)) {
+            return $this->response->setStatusCode(403)->setJSON(['error' => 'Forbidden']);
+        }
+
+        $idSimpanan = (int) ($this->request->getPost('id_simpanan') ?? 0);
+        if ($idSimpanan <= 0) {
+            return $this->response->setStatusCode(400)->setJSON(['error' => 'Data simpanan tidak valid']);
+        }
+
+        $tanggalSimpan = trim((string) ($this->request->getPost('tanggal_simpan') ?? ''));
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $tanggalSimpan)) {
+            return $this->response->setStatusCode(400)->setJSON(['error' => 'Tanggal simpan tidak valid']);
+        }
+
+        $jumlahRaw = trim((string) ($this->request->getPost('jumlah') ?? '0'));
+        $jumlahClean = str_replace([',', ' '], ['', ''], $jumlahRaw);
+        $jumlah = is_numeric($jumlahClean) ? (float) $jumlahClean : 0.0;
+        if ($jumlah <= 0) {
+            return $this->response->setStatusCode(400)->setJSON(['error' => 'Jumlah simpanan sukarela harus lebih dari 0']);
+        }
+
+        $tipe = strtolower(trim((string) ($this->request->getPost('tipe_sukarela') ?? '')));
+        if (!in_array($tipe, ['biasa', 'berjangka'], true)) {
+            return $this->response->setStatusCode(400)->setJSON(['error' => 'Tipe simpanan sukarela tidak valid']);
+        }
+
+        $jangkaWaktu = (int) ($this->request->getPost('jangka_waktu') ?? 0);
+        if ($tipe === 'berjangka' && $jangkaWaktu <= 0) {
+            return $this->response->setStatusCode(400)->setJSON(['error' => 'Jangka waktu wajib diisi untuk simpanan berjangka']);
+        }
+
+        $status = strtolower(trim((string) ($this->request->getPost('status') ?? 'pending')));
+        if (!in_array($status, ['pending', 'aktif'], true)) {
+            $status = 'pending';
+        }
+
+        $db = \Config\Database::connect();
+        $existing = $db->table('simpanan')->where('id_simpanan', $idSimpanan)->get()->getRowArray();
+        if (!$existing || ($existing['jenis_simpanan'] ?? '') !== 'sukarela') {
+            return $this->response->setStatusCode(404)->setJSON(['error' => 'Data simpanan sukarela tidak ditemukan']);
+        }
+
+        $dataUpdate = [
+            'tanggal_simpan' => $tanggalSimpan,
+            'jumlah' => number_format($jumlah, 2, '.', ''),
+            'status' => $status,
+            'tipe_sukarela' => $tipe,
+            'jangka_waktu' => $tipe === 'berjangka' ? $jangkaWaktu : null,
+        ];
+
+        try {
+            $fields = $db->getFieldNames('simpanan');
+        } catch (\Throwable $e) {
+            $fields = ['tanggal_simpan', 'jumlah', 'status', 'tipe_sukarela', 'jangka_waktu'];
+        }
+        $allowed = array_flip($fields);
+        $dataFiltered = array_intersect_key($dataUpdate, $allowed);
+
+        try {
+            $db->table('simpanan')->where('id_simpanan', $idSimpanan)->update($dataFiltered);
+            return $this->response->setJSON(['ok' => true]);
+        } catch (\Throwable $e) {
+            return $this->response->setStatusCode(500)->setJSON(['error' => 'Gagal memperbarui simpanan sukarela: ' . $e->getMessage()]);
+        }
+    }
+
+    public function apiDeleteSimpananSukarela()
+    {
+        $session = session();
+        $user = $session->get('user');
+        if (!$session->get('isLoggedIn') || !$user) {
+            return $this->response->setStatusCode(401)->setJSON(['error' => 'Unauthorized']);
+        }
+        $role = $user['role'] ?? null;
+        if (!in_array($role, ['petugas', 'admin', 'anggota_petugas'], true)) {
+            return $this->response->setStatusCode(403)->setJSON(['error' => 'Forbidden']);
+        }
+
+        $idSimpanan = (int) ($this->request->getPost('id_simpanan') ?? 0);
+        if ($idSimpanan <= 0) {
+            return $this->response->setStatusCode(400)->setJSON(['error' => 'Data simpanan tidak valid']);
+        }
+
+        $db = \Config\Database::connect();
+        $existing = $db->table('simpanan')->where('id_simpanan', $idSimpanan)->get()->getRowArray();
+        if (!$existing || ($existing['jenis_simpanan'] ?? '') !== 'sukarela') {
+            return $this->response->setStatusCode(404)->setJSON(['error' => 'Data simpanan sukarela tidak ditemukan']);
+        }
+
+        try {
+            $db->table('simpanan')->where('id_simpanan', $idSimpanan)->delete();
+            return $this->response->setJSON(['ok' => true]);
+        } catch (\Throwable $e) {
+            return $this->response->setStatusCode(500)->setJSON(['error' => 'Gagal menghapus simpanan sukarela: ' . $e->getMessage()]);
+        }
+    }
+
     public function apiSimpananData()
     {
         $session = session();
