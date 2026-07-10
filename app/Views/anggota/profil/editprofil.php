@@ -148,8 +148,9 @@
               
               <div class="col-md-4">
                 <label class="form-label">Foto</label>
-                <input type="file" name="foto" id="fotoInput" class="form-control" accept="image/*" />
+                <input type="file" name="foto" id="fotoInput" class="form-control" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" />
                 <input type="hidden" name="foto_cropped" id="fotoCropped" />
+                <small class="text-muted">Format yang didukung: JPG, PNG, WEBP. Ukuran maksimal 2MB.</small>
               </div>
               <div class="col-md-4">
                 <label class="form-label">Preview</label>
@@ -208,10 +209,14 @@
   const cropImage = document.getElementById('cropImage');
   const fotoPreview = document.getElementById('fotoPreview');
   const fotoCropped = document.getElementById('fotoCropped');
+  const allowedPhotoTypes = ['image/jpeg', 'image/png', 'image/webp'];
   let pendingCropUrl = '';
   cropModalEl.addEventListener('hidden.bs.modal', function() {
     if (cropper) { cropper.destroy(); cropper = null; }
     cropImage.src = '';
+    if (pendingCropUrl) {
+      URL.revokeObjectURL(pendingCropUrl);
+    }
     pendingCropUrl = '';
   });
   cropModalEl.addEventListener('shown.bs.modal', function() {
@@ -223,6 +228,7 @@
   fotoInput.addEventListener('change', function() {
     const f = this.files && this.files[0] ? this.files[0] : null;
     if (!f) return;
+    if (!allowedPhotoTypes.includes(f.type)) { alert('Format foto harus JPG, PNG, atau WEBP'); this.value=''; fotoCropped.value=''; return; }
     if (f.size > 2 * 1024 * 1024) { alert('Ukuran foto maksimal 2MB'); this.value=''; return; }
     const url = URL.createObjectURL(f);
     pendingCropUrl = url;
@@ -238,6 +244,7 @@
       reader.onloadend = function() {
         fotoCropped.value = reader.result;
         fotoPreview.src = reader.result;
+        fotoInput.value = '';
         bootstrap.Modal.getInstance(cropModalEl).hide();
       };
       reader.readAsDataURL(blob);
@@ -277,6 +284,7 @@
   (function(){
     const form = document.getElementById('formEditProfil');
     if (!form) return;
+    const submitBtn = form.querySelector('button[type="submit"]');
     form.addEventListener('submit', function(e){
       let missing = [];
       const jenisKelamin = document.getElementById('jenis_kelamin');
@@ -304,12 +312,24 @@
       if (existing) { existing.remove(); }
       if (missing.length > 0) {
         e.preventDefault();
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Simpan';
+        }
         const alertDiv = document.createElement('div');
         alertDiv.className = 'alert alert-danger';
         alertDiv.id = 'editProfilAlert';
         alertDiv.innerHTML = 'Data wajib diisi: ' + missing.join(', ');
         form.parentNode.insertBefore(alertDiv, form);
         alertDiv.scrollIntoView({behavior:'smooth'});
+        return;
+      }
+
+      const existing = document.getElementById('editProfilAlert');
+      if (existing) { existing.remove(); }
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Menyimpan...';
       }
     });
   })();
