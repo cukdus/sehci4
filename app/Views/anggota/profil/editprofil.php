@@ -150,7 +150,7 @@
                 <label class="form-label">Foto</label>
                 <input type="file" name="foto" id="fotoInput" class="form-control" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" />
                 <input type="hidden" name="foto_cropped" id="fotoCropped" />
-                <small class="text-muted">Format yang didukung: JPG, PNG, WEBP. Ukuran maksimal 2MB.</small>
+                <small class="text-muted">Format yang didukung: JPG, PNG, WEBP. Foto akan dikompresi otomatis agar ukuran file lebih ringan.</small>
               </div>
               <div class="col-md-4">
                 <label class="form-label">Preview</label>
@@ -210,7 +210,28 @@
   const fotoPreview = document.getElementById('fotoPreview');
   const fotoCropped = document.getElementById('fotoCropped');
   const allowedPhotoTypes = ['image/jpeg', 'image/png', 'image/webp'];
+  const maxCompressedBytes = 350 * 1024;
   let pendingCropUrl = '';
+  function canvasToCompressedBlob(canvas, quality) {
+    return new Promise(function(resolve) {
+      canvas.toBlob(function(blob) {
+        resolve(blob || null);
+      }, 'image/jpeg', quality);
+    });
+  }
+  async function getCompressedBlob(canvas) {
+    const qualities = [0.82, 0.75, 0.68, 0.6, 0.52];
+    let selectedBlob = null;
+    for (const quality of qualities) {
+      const blob = await canvasToCompressedBlob(canvas, quality);
+      if (!blob) continue;
+      selectedBlob = blob;
+      if (blob.size <= maxCompressedBytes) {
+        return blob;
+      }
+    }
+    return selectedBlob;
+  }
   cropModalEl.addEventListener('hidden.bs.modal', function() {
     if (cropper) { cropper.destroy(); cropper = null; }
     cropImage.src = '';
@@ -236,23 +257,22 @@
     const modal = new bootstrap.Modal(cropModalEl);
     modal.show();
   });
-  document.getElementById('btnApplyCrop').addEventListener('click', function() {
+  document.getElementById('btnApplyCrop').addEventListener('click', async function() {
     if (!cropper) return;
     const canvas = cropper.getCroppedCanvas({ width: 500, height: 500 });
-    canvas.toBlob(function(blob) {
-      if (!blob) {
-        alert('Foto hasil crop tidak dapat dibuat. Coba gunakan file JPG atau PNG lain.');
-        return;
-      }
-      const reader = new FileReader();
-      reader.onloadend = function() {
-        fotoCropped.value = reader.result;
-        fotoPreview.src = reader.result;
-        fotoInput.value = '';
-        bootstrap.Modal.getInstance(cropModalEl).hide();
-      };
-      reader.readAsDataURL(blob);
-    }, 'image/png');
+    const blob = await getCompressedBlob(canvas);
+    if (!blob) {
+      alert('Foto hasil crop tidak dapat dibuat. Coba gunakan file JPG atau PNG lain.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onloadend = function() {
+      fotoCropped.value = reader.result;
+      fotoPreview.src = reader.result;
+      fotoInput.value = '';
+      bootstrap.Modal.getInstance(cropModalEl).hide();
+    };
+    reader.readAsDataURL(blob);
   });
 
   const skillOtherCheckbox = document.getElementById('skillOther');
