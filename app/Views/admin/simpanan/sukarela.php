@@ -221,6 +221,7 @@
 </div>
 
 <script>
+  document.addEventListener('DOMContentLoaded', function(){
     let page = 1; const perPage = 25;
     const rowsEl = document.getElementById('rows');
     const pageInfo = document.getElementById('pageInfo');
