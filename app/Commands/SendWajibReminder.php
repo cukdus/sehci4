@@ -137,7 +137,7 @@ class SendWajibReminder extends BaseCommand
             $this->upsertLog($db, (int) $anggota['id_anggota'], $period, $phone, 'failed', $errorText);
             log_message('error', 'WAHA wajib reminder failed for anggota ' . (int) $anggota['id_anggota'] . ': ' . $errorText);
             $failed++;
-            CLI::write('Gagal: ' . ($anggota['nama'] ?? '-') . ' (' . $phone . ')', 'red');
+            CLI::write('Gagal: ' . ($anggota['nama'] ?? '-') . ' (' . $phone . ') - ' . $errorText, 'red');
         }
 
         CLI::write('Selesai. Terkirim: ' . $sent . ', gagal: ' . $failed . ', dilewati: ' . $skipped . '.', 'yellow');
