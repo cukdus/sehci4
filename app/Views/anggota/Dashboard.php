@@ -976,28 +976,33 @@
       var wajib = Array.isArray(seriesMap.wajib) ? seriesMap.wajib : [];
       var sukarela = Array.isArray(seriesMap.sukarela) ? seriesMap.sukarela : [];
       var pinj = Array.isArray(seriesMap.pinjaman) ? seriesMap.pinjaman : [];
-      var hasData = pokok.concat(wajib, sukarela, pinj).some(function(v){ return parseFloat(v || 0) > 0; });
+      var neraca = Array.isArray(seriesMap.neraca) ? seriesMap.neraca : [];
+      var hasData = pokok.concat(wajib, sukarela, pinj, neraca).some(function(v){ return parseFloat(v || 0) !== 0; });
       var el=document.getElementById('revenue-chart');
       if(!el){ return; }
       el.innerHTML='';
       if(!hasData){
-        el.innerHTML = '<div class="d-flex h-100 align-items-center justify-content-center text-muted">Belum ada data tabungan dan pinjaman anggota.</div>';
+        el.innerHTML = '<div class="d-flex h-100 align-items-center justify-content-center text-muted">Belum ada data tabungan aktif dan pinjaman aktif anggota.</div>';
         el.style.visibility='visible';
         return;
       }
       var chart=new ApexCharts(el, {
-        chart:{ type:'area', height:300, stacked:false, toolbar:{ show:false } },
+        chart:{ type:'line', height:300, stacked:false, toolbar:{ show:false } },
         dataLabels:{ enabled:false },
-        stroke:{ curve:'smooth', width:2 },
+        stroke:{ curve:'smooth', width:[2,2,2,2,4] },
         series:[
-          { name:'Pokok', data:pokok },
-          { name:'Wajib', data:wajib },
-          { name:'Sukarela', data:sukarela },
-          { name:'Pinjaman', data:pinj }
+          { name:'Pokok Aktif', type:'area', data:pokok },
+          { name:'Wajib Aktif', type:'area', data:wajib },
+          { name:'Sukarela Aktif', type:'area', data:sukarela },
+          { name:'Pinjaman Aktif', type:'area', data:pinj },
+          { name:'Neraca', type:'line', data:neraca }
         ],
-        colors:['#0d6efd','#198754','#ffc107','#dc3545'],
-        fill:{ type:'gradient', gradient:{ shadeIntensity:1, opacityFrom:0.65, opacityTo:0.5, stops:[0,100] } },
-        markers:{ size:0 },
+        colors:['#0d6efd','#198754','#ffc107','#dc3545','#212529'],
+        fill:{
+          type:['gradient','gradient','gradient','gradient','solid'],
+          gradient:{ shadeIntensity:1, opacityFrom:0.45, opacityTo:0.15, stops:[0,100] }
+        },
+        markers:{ size:[0,0,0,0,4], hover:{ sizeOffset:2 } },
         grid:{ strokeDashArray:4 },
         legend:{ position:'top' },
         xaxis:{ categories:labels },
