@@ -968,6 +968,45 @@
       return s.endsWith(',00') ? s.slice(0,-3)+',-' : s;
     }
     function setText(id,val){ var el=document.getElementById(id); if(el){ el.textContent='Rp ' + fmt(parseFloat(val||0)); } }
+    function renderChart(summary){
+      var chartData = summary && summary.chart ? summary.chart : {};
+      var labels = Array.isArray(chartData.categories) ? chartData.categories : [];
+      var seriesMap = chartData.series || {};
+      var pokok = Array.isArray(seriesMap.pokok) ? seriesMap.pokok : [];
+      var wajib = Array.isArray(seriesMap.wajib) ? seriesMap.wajib : [];
+      var sukarela = Array.isArray(seriesMap.sukarela) ? seriesMap.sukarela : [];
+      var pinj = Array.isArray(seriesMap.pinjaman) ? seriesMap.pinjaman : [];
+      var hasData = pokok.concat(wajib, sukarela, pinj).some(function(v){ return parseFloat(v || 0) > 0; });
+      var el=document.getElementById('revenue-chart');
+      if(!el){ return; }
+      el.innerHTML='';
+      if(!hasData){
+        el.innerHTML = '<div class="d-flex h-100 align-items-center justify-content-center text-muted">Belum ada data tabungan dan pinjaman anggota.</div>';
+        el.style.visibility='visible';
+        return;
+      }
+      var chart=new ApexCharts(el, {
+        chart:{ type:'area', height:300, stacked:false, toolbar:{ show:false } },
+        dataLabels:{ enabled:false },
+        stroke:{ curve:'smooth', width:2 },
+        series:[
+          { name:'Pokok', data:pokok },
+          { name:'Wajib', data:wajib },
+          { name:'Sukarela', data:sukarela },
+          { name:'Pinjaman', data:pinj }
+        ],
+        colors:['#0d6efd','#198754','#ffc107','#dc3545'],
+        fill:{ type:'gradient', gradient:{ shadeIntensity:1, opacityFrom:0.65, opacityTo:0.5, stops:[0,100] } },
+        markers:{ size:0 },
+        grid:{ strokeDashArray:4 },
+        legend:{ position:'top' },
+        xaxis:{ categories:labels },
+        yaxis:{ labels:{ formatter:function(v){ return new Intl.NumberFormat('id-ID').format(v||0); } } },
+        tooltip:{ shared:true, intersect:false, y:{ formatter:function(v){ return 'Rp ' + fmt(v); } } }
+      });
+      chart.render().then(function(){ el.style.visibility='visible'; });
+    }
+
     fetch('/anggota/api/simpanan/summary')
       .then(r=>r.json())
       .then(s=>{
@@ -975,48 +1014,14 @@
         setText('sumWajibDash', s.sumWajib);
         setText('sumSukarelaDash', s.sumSukarela);
         setText('sumPinjamanDash', s.sumPinjaman);
+        renderChart(s);
+      })
+      .catch(function(){
+        var el = document.getElementById('revenue-chart');
+        if (el) {
+          el.innerHTML = '<div class="d-flex h-100 align-items-center justify-content-center text-danger">Gagal memuat statistik tabungan dan pinjaman.</div>';
+          el.style.visibility = 'visible';
+        }
       });
-
-    function monthKey(d){ if(!d) return ''; var m=d.match(/^([0-9]{4})-([0-9]{2})/); if(m){ return m[1]+'-'+m[2]; } try{ var dt=new Date(d); var yyyy=dt.getFullYear(); var mm=('0'+(dt.getMonth()+1)).slice(-2); return yyyy+'-'+mm; }catch(e){ return ''; } }
-    function monthLabel(key){ if(!key) return ''; var a=key.split('-'); var dt=new Date(parseInt(a[0],10), parseInt(a[1],10)-1, 1); return dt.toLocaleDateString('id-ID',{month:'short', year:'numeric'}); }
-    function fetchAll(base){ return fetch(base+'1').then(r=>r.json()).then(async j=>{ var data=j.data||[]; var total=(j.meta&&j.meta.totalPages)||1; if(total>1){ var reqs=[]; for(var p=2;p<=total;p++){ reqs.push(fetch(base+p).then(r=>r.json())); } var rest=await Promise.all(reqs); rest.forEach(x=>{ data=data.concat(x.data||[]); }); } return data; }); }
-    function loadChart(){
-      Promise.all([
-        fetchAll('/anggota/api/simpanan/data?page='),
-        fetchAll('/anggota/api/pinjaman?page=')
-      ]).then(([simpanan,pinjaman])=>{
-        var months=new Set();
-        var map={};
-        simpanan.forEach(s=>{ var key=monthKey(s.tanggal_simpan); if(!key) return; months.add(key); if(!map[key]) map[key]={pokok:0,wajib:0,sukarela:0,pinjaman:0}; var j=(s.jenis_simpanan||'').toLowerCase(); var amt=parseFloat(s.jumlah||0); if(j==='pokok') map[key].pokok+=amt; else if(j==='wajib') map[key].wajib+=amt; else if(j==='sukarela') map[key].sukarela+=amt; });
-        pinjaman.forEach(p=>{ var key=monthKey(p.tanggal_pinjam); if(!key) return; months.add(key); if(!map[key]) map[key]={pokok:0,wajib:0,sukarela:0,pinjaman:0}; map[key].pinjaman+=parseFloat(p.jumlah_pinjaman||0); });
-        var cats=Array.from(months).sort();
-        var labels=cats.map(monthLabel);
-        var pokok=cats.map(k=>map[k]?.pokok||0);
-        var wajib=cats.map(k=>map[k]?.wajib||0);
-        var sukarela=cats.map(k=>map[k]?.sukarela||0);
-        var pinj=cats.map(k=>map[k]?.pinjaman||0);
-        var el=document.getElementById('revenue-chart');
-        if(el){ el.innerHTML=''; var chart=new ApexCharts(el, {
-          chart:{ type:'area', height:300, stacked:false, toolbar:{ show:false } },
-          dataLabels:{ enabled:false },
-          stroke:{ curve:'smooth', width:2 },
-          series:[
-            { name:'Pokok', data:pokok },
-            { name:'Wajib', data:wajib },
-            { name:'Sukarela', data:sukarela },
-            { name:'Pinjaman', data:pinj }
-          ],
-          colors:['#0d6efd','#198754','#ffc107','#dc3545'],
-          fill:{ type:'gradient', gradient:{ shadeIntensity:1, opacityFrom:0.65, opacityTo:0.5, stops:[0,100] } },
-          markers:{ size:0 },
-          grid:{ strokeDashArray:4 },
-          legend:{ position:'top' },
-          xaxis:{ categories:labels },
-          yaxis:{ labels:{ formatter:function(v){ return new Intl.NumberFormat('id-ID').format(v||0); } } },
-          tooltip:{ shared:true, intersect:false, y:{ formatter:function(v){ var s=new Intl.NumberFormat('id-ID',{minimumFractionDigits:2,maximumFractionDigits:2}).format(v||0); return 'Rp ' + (s.endsWith(',00')?s.slice(0,-3)+',-':s); } } }
-        }); chart.render().then(function(){ if(el){ el.style.visibility='visible'; } }); }
-      });
-    }
-    loadChart();
   })();
 </script>

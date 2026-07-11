@@ -757,22 +757,126 @@ class Anggota extends Controller
         }
         $idAnggota = (int) ($user['id_anggota'] ?? 0);
         $db = \Config\Database::connect();
-        $sumPokok = (float) ($db->table('simpanan')->selectSum('jumlah')->where('id_anggota', $idAnggota)->where('jenis_simpanan', 'pokok')->where('status', 'aktif')->get()->getRowArray()['jumlah'] ?? 0);
-        $sumWajib = (float) ($db->table('simpanan')->selectSum('jumlah')->where('id_anggota', $idAnggota)->where('jenis_simpanan', 'wajib')->where('status', 'aktif')->get()->getRowArray()['jumlah'] ?? 0);
-        $sumSukarela = (float) ($db->table('simpanan')->selectSum('jumlah')->where('id_anggota', $idAnggota)->where('jenis_simpanan', 'sukarela')->where('status', 'aktif')->get()->getRowArray()['jumlah'] ?? 0);
+        $sumPokok = (float) ($db->table('simpanan')->selectSum('jumlah')->where('id_anggota', $idAnggota)->where('jenis_simpanan', 'pokok')->get()->getRowArray()['jumlah'] ?? 0);
+        $sumWajib = (float) ($db->table('simpanan')->selectSum('jumlah')->where('id_anggota', $idAnggota)->where('jenis_simpanan', 'wajib')->get()->getRowArray()['jumlah'] ?? 0);
+        $sumSukarela = (float) ($db->table('simpanan')->selectSum('jumlah')->where('id_anggota', $idAnggota)->where('jenis_simpanan', 'sukarela')->get()->getRowArray()['jumlah'] ?? 0);
         $sumPinjaman = 0.0;
+        $chartMap = [];
+
+        $ensureBucket = static function (string $key) use (&$chartMap): void {
+            if (!isset($chartMap[$key])) {
+                $chartMap[$key] = [
+                    'pokok' => 0.0,
+                    'wajib' => 0.0,
+                    'sukarela' => 0.0,
+                    'pinjaman' => 0.0,
+                ];
+            }
+        };
+
+        $normalizeBucketKey = static function (?string $date): string {
+            $date = trim((string) $date);
+            if ($date === '') {
+                return '__tanpa_tanggal';
+            }
+
+            if (preg_match('/^\d{4}-\d{2}/', $date) === 1) {
+                return substr($date, 0, 7);
+            }
+
+            try {
+                return (new \DateTimeImmutable($date))->format('Y-m');
+            } catch (\Throwable $e) {
+                return '__tanpa_tanggal';
+            }
+        };
+
+        $formatBucketLabel = static function (string $key): string {
+            if ($key === '__tanpa_tanggal') {
+                return 'Tanpa Tanggal';
+            }
+
+            try {
+                return (new \DateTimeImmutable($key . '-01'))->format('M Y');
+            } catch (\Throwable $e) {
+                return $key;
+            }
+        };
+
+        $simpananRows = $db
+            ->table('simpanan')
+            ->select('jenis_simpanan, jumlah, tanggal_simpan')
+            ->where('id_anggota', $idAnggota)
+            ->get()
+            ->getResultArray();
+
+        foreach ($simpananRows as $row) {
+            $jenis = strtolower((string) ($row['jenis_simpanan'] ?? ''));
+            if (!in_array($jenis, ['pokok', 'wajib', 'sukarela'], true)) {
+                continue;
+            }
+
+            $bucketKey = $normalizeBucketKey($row['tanggal_simpan'] ?? null);
+            $ensureBucket($bucketKey);
+            $chartMap[$bucketKey][$jenis] += (float) ($row['jumlah'] ?? 0);
+        }
+
         try {
             $tables = $db->listTables();
             if (in_array('pinjaman', $tables, true)) {
                 $sumPinjaman = (float) ($db->table('pinjaman')->selectSum('jumlah_pinjaman')->where('id_anggota', $idAnggota)->get()->getRowArray()['jumlah_pinjaman'] ?? 0);
+                $pinjamanRows = $db
+                    ->table('pinjaman')
+                    ->select('jumlah_pinjaman, tanggal_pinjam')
+                    ->where('id_anggota', $idAnggota)
+                    ->get()
+                    ->getResultArray();
+
+                foreach ($pinjamanRows as $row) {
+                    $bucketKey = $normalizeBucketKey($row['tanggal_pinjam'] ?? null);
+                    $ensureBucket($bucketKey);
+                    $chartMap[$bucketKey]['pinjaman'] += (float) ($row['jumlah_pinjaman'] ?? 0);
+                }
             }
         } catch (\Throwable $e) {
         }
+
+        $chartKeys = array_keys($chartMap);
+        usort($chartKeys, static function (string $a, string $b): int {
+            if ($a === '__tanpa_tanggal') {
+                return 1;
+            }
+            if ($b === '__tanpa_tanggal') {
+                return -1;
+            }
+
+            return strcmp($a, $b);
+        });
+
+        $chart = [
+            'categories' => [],
+            'series' => [
+                'pokok' => [],
+                'wajib' => [],
+                'sukarela' => [],
+                'pinjaman' => [],
+            ],
+        ];
+
+        foreach ($chartKeys as $key) {
+            $chart['categories'][] = $formatBucketLabel($key);
+            $chart['series']['pokok'][] = (float) ($chartMap[$key]['pokok'] ?? 0);
+            $chart['series']['wajib'][] = (float) ($chartMap[$key]['wajib'] ?? 0);
+            $chart['series']['sukarela'][] = (float) ($chartMap[$key]['sukarela'] ?? 0);
+            $chart['series']['pinjaman'][] = (float) ($chartMap[$key]['pinjaman'] ?? 0);
+        }
+
         return $this->response->setJSON([
             'sumPokok' => $sumPokok,
             'sumWajib' => $sumWajib,
             'sumSukarela' => $sumSukarela,
             'sumPinjaman' => $sumPinjaman,
+            'chart' => $chart,
         ]);
     }
 
