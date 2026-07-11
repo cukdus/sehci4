@@ -12,25 +12,73 @@
 </div>
 <?php if (!empty($showProfileIncompleteModal)): ?>
 <div class="modal fade" id="profileIncompleteModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down">
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title">Lengkapi Profil</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
-      <div class="modal-body">
-        <p>Data profil anda belum lengkap. Mohon lengkapi untuk pengalaman yang lebih baik.</p>
+      <div class="modal-body profile-incomplete-body">
+        <p class="mb-3">Data profil anda belum lengkap. Mohon lengkapi supaya data anggota lebih rapi dan fitur sistem dapat berjalan dengan baik.</p>
         <?php if (!empty($profileMissingFields)): ?>
-          <div class="small text-muted">Kurang: <?= esc(implode(', ', $profileMissingFields)) ?></div>
+          <div class="small text-muted mb-2">Data yang masih perlu diisi:</div>
+          <div class="profile-incomplete-fields">
+            <?php foreach ($profileMissingFields as $field): ?>
+              <span class="badge text-bg-light border"><?= esc($field) ?></span>
+            <?php endforeach; ?>
+          </div>
         <?php endif; ?>
       </div>
-      <div class="modal-footer">
+      <div class="modal-footer profile-incomplete-footer">
         <a href="/anggota/profil/edit" class="btn btn-primary">Lengkapi Profil</a>
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Lain kali</button>
       </div>
     </div>
   </div>
   </div>
+<style>
+  .profile-incomplete-fields {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .profile-incomplete-fields .badge {
+    font-size: 0.9rem;
+    font-weight: 500;
+    padding: 0.6rem 0.8rem;
+    white-space: normal;
+    text-align: left;
+  }
+
+  .profile-incomplete-footer {
+    gap: 0.75rem;
+  }
+
+  @media (max-width: 575.98px) {
+    .profile-incomplete-body {
+      padding: 1rem;
+    }
+
+    .profile-incomplete-fields {
+      flex-direction: column;
+    }
+
+    .profile-incomplete-fields .badge {
+      width: 100%;
+    }
+
+    .profile-incomplete-footer {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .profile-incomplete-footer .btn {
+      width: 100%;
+      margin: 0;
+    }
+  }
+</style>
 <script>
   document.addEventListener('DOMContentLoaded', function(){
     var el = document.getElementById('profileIncompleteModal');
